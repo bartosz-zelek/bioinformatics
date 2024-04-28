@@ -14,14 +14,18 @@ class ReconstructionData:
     def __init__(self, json: dict):
         self.length = json["dna"]["@length"]
         self.start = json["dna"]["@start"]
-        self.probes = []
+        # self.probes = []
 
-        for probe in json["dna"]["probe"]:
-            self.probes.append(Probe(probe))
+        # for probe in json["dna"]["probe"]:
+        #     self.probes.append(Probe(probe))
+        self.WS_probe = Probe(json["dna"]["probe"][0])
+        self.RY_probe = Probe(json["dna"]["probe"][1])
 
     def __repr__(self):
-        return f"Length: {self.length}, Start: {self.start}, Probes: {self.probes}"
+        return f"Length: {self.length}, Start: {self.start}, Probes:[ {self.WS_probe}, {self.RY_probe} ]"
 
     length: int = None
     start: str = None
-    probes: list[Probe] = None
+    # probes: list[Probe] = None
+    WS_probe: Probe = None
+    RY_probe: Probe = None
