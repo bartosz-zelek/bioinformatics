@@ -29,6 +29,7 @@ class WSRY:
 
         return half
 
+    @staticmethod
     def connect_WS_RY(oligo_WS: str, oligo_RY) -> str:
         connected = ""
         for nucleotide_WS, nucleotide_RY in zip(oligo_WS, oligo_RY):
@@ -45,9 +46,9 @@ class WSRY:
 
     def __init__(self, dict_convertion: dict, oligo: str, cells: dict):
         self.dict_convertion = dict_convertion
-        self.start_converted = self.convert_oligo(oligo)
+        self.start_converted = self.convert_oligo(oligo)  # set_first - Z_set_first
 
-        self.cells_dict = {}
+        self.cells_dict = {}  # ols
         for cell in cells:
             self.cells_dict[cell] = False
         self.cells_dict[self.start_converted] = True
@@ -58,11 +59,11 @@ class WSRY:
     def __repr__(self) -> str:
         return f"Start: {self.start_converted} Path: {self.path} Depth: {self.depth}"
 
-    start_converted: str = None  # set_first - Z_set_first
-    dict_convertion: dict = None
-    cells_dict: dict = None  # ols
-    path: list[str] = None
-    depth: list[int] = None
+    # start_converted: str = None  # set_first - Z_set_first
+    # dict_convertion: dict = None
+    # cells_dict: dict = None  # ols
+    # path: list[str] = None
+    # depth: list[int] = None
 
 
 def fetch_test_data(
@@ -87,6 +88,7 @@ def check_overlap(oligo1, oligo2, probe):
     for offset in range(probe - 1, 0, -1):
         if oligo1[probe - offset :] == oligo2[:offset]:
             return max_overlap
+    return 0
 
 
 def search_overlapings(
@@ -101,10 +103,16 @@ def search_overlapings(
             overlapings[cell] = max_overlap
 
 
+# Jeżeli przez liczbę błędów negatywnych obu części spektrum
+# oznaczymy różnicę pomiędzy liczbą ich elementów a liczbą elementów w spektrum
+# idealnym
+
+
 def reconstruct(
     is_reconstructed: bool,
     reconstructed_dna_length: int,
     reconstructed_dna: str,
+    s_space_empty: bool,
     ws: WSRY,
     ry: WSRY,
     rd: ReconstructionData,
@@ -133,23 +141,28 @@ def reconstruct(
             _rd,
         )
 
-    _ws.start_converted[-1] = nucleotide_to_weak_strong[
-        _ws.start_converted[-1]
-    ]  # change last nucleotide to WS
-    _ry.start_converted[-1] = nucleotide_to_purine_pyrimidine[
-        _ry.start_converted[-1]
-    ]  # change last nucleotide to RY
+    _ws.start_converted = (
+        _ws.start_converted[:-1] + nucleotide_to_weak_strong[_ws.start_converted[-1]]
+    )  # change last nucleotide to WS
+    _ry.start_converted = (
+        _ry.start_converted[:-1]
+        + nucleotide_to_purine_pyrimidine[_ry.start_converted[-1]]
+    )  # change last nucleotide to RY
 
-    overlapings_ws = dict()
-    overlapings_ry = dict()
+    overlapings_ws: dict[str, int] = dict()
+    overlapings_ry: dict[str, int] = dict()
     search_overlapings(
         _ws.start_converted, _rd.WS_probe.cells, _ws.cells_dict, overlapings_ws
     )
     search_overlapings(
         _ry.start_converted, _rd.RY_probe.cells, _ry.cells_dict, overlapings_ry
     )
-    if not overlapings_ry or not overlapings_ws:
+    if (
+        not overlapings_ry or not overlapings_ws
+    ):  # some of chips does not have any overlapings
         # what to return here?
+        print("NO OVERLAPINGS!")
+        is_reconstructed = True  # for sure?
         return (
             is_reconstructed,
             reconstructed_dna_length,
@@ -158,6 +171,10 @@ def reconstruct(
             _ry,
             _rd,
         )
+    if len(reconstructed_dna) > reconstructed_dna_length or (
+        s_space_empty and reconstructed_dna_length != len(reconstructed_dna)
+    ):
+        pass
 
 
 def main():
@@ -167,7 +184,7 @@ def main():
     # print(ws)
     # print(ry)
     # print(r)
-    print(reconstruct(True, 0, "", ws, ry, r))
+    print(reconstruct(False, 0, "", False, ws, ry, r))
 
 
 main()
