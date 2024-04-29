@@ -7,7 +7,7 @@ class Probe:
         return f"Pattern: {self.pattern}, Cells: {self.cells[:3]}"
 
     pattern: str = None
-    cells: list[str] = None
+    cells: list[str] = None  # sx - s1, s2
 
 
 class ReconstructionData:

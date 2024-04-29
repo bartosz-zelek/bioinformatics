@@ -1,6 +1,6 @@
 import requests
 import xmltodict
-import pprint
+import copy
 from reconstruction_data import ReconstructionData
 
 
@@ -29,12 +29,12 @@ class WSRY:
 
         return half
 
-    def connect_WS_RY(self, oligo_WS: str, oligo_RY) -> str:
+    def connect_WS_RY(oligo_WS: str, oligo_RY) -> str:
         connected = ""
         for nucleotide_WS, nucleotide_RY in zip(oligo_WS, oligo_RY):
             temp = nucleotide_WS + nucleotide_RY
             if temp == "SR":
-                connected += "A"
+                connected += "G"
             elif temp == "SY":
                 connected += "C"
             elif temp == "WR":
@@ -58,9 +58,9 @@ class WSRY:
     def __repr__(self) -> str:
         return f"Start: {self.start_converted} Path: {self.path} Depth: {self.depth}"
 
-    start_converted: str = None
+    start_converted: str = None  # set_first - Z_set_first
     dict_convertion: dict = None
-    cells_dict: dict = None
+    cells_dict: dict = None  # ols
     path: list[str] = None
     depth: list[int] = None
 
@@ -82,13 +82,92 @@ def fetch_test_data(
     return ReconstructionData(data)
 
 
+def check_overlap(oligo1, oligo2, probe):
+    max_overlap = 0
+    for offset in range(probe - 1, 0, -1):
+        if oligo1[probe - offset :] == oligo2[:offset]:
+            return max_overlap
+
+
+def search_overlapings(
+    oligo: str,
+    cells: list[str],
+    cells_dict: dict[str, bool],
+    overlapings: dict[str, int],
+):
+    for cell in cells:
+        max_overlap = check_overlap(oligo, cell, len(cell))
+        if not cells_dict[cell] and not max_overlap:
+            overlapings[cell] = max_overlap
+
+
+def reconstruct(
+    is_reconstructed: bool,
+    reconstructed_dna_length: int,
+    reconstructed_dna: str,
+    ws: WSRY,
+    ry: WSRY,
+    rd: ReconstructionData,
+):
+    _ws = copy.deepcopy(ws)
+    _ry = copy.deepcopy(ry)
+    _rd = copy.deepcopy(rd)
+    if is_reconstructed:
+        return (
+            is_reconstructed,
+            reconstructed_dna_length,
+            reconstructed_dna,
+            _ws,
+            _ry,
+            _rd,
+        )
+    if _rd.length == reconstructed_dna_length:
+        is_reconstructed = True
+        reconstructed_dna = WSRY.connect_WS_RY(_ws.start_converted, _ry.start_converted)
+        return (
+            is_reconstructed,
+            reconstructed_dna_length,
+            reconstructed_dna,
+            _ws,
+            _ry,
+            _rd,
+        )
+
+    _ws.start_converted[-1] = nucleotide_to_weak_strong[
+        _ws.start_converted[-1]
+    ]  # change last nucleotide to WS
+    _ry.start_converted[-1] = nucleotide_to_purine_pyrimidine[
+        _ry.start_converted[-1]
+    ]  # change last nucleotide to RY
+
+    overlapings_ws = dict()
+    overlapings_ry = dict()
+    search_overlapings(
+        _ws.start_converted, _rd.WS_probe.cells, _ws.cells_dict, overlapings_ws
+    )
+    search_overlapings(
+        _ry.start_converted, _rd.RY_probe.cells, _ry.cells_dict, overlapings_ry
+    )
+    if not overlapings_ry or not overlapings_ws:
+        # what to return here?
+        return (
+            is_reconstructed,
+            reconstructed_dna_length,
+            reconstructed_dna,
+            _ws,
+            _ry,
+            _rd,
+        )
+
+
 def main():
     r = fetch_test_data()
     ws = WSRY(nucleotide_to_weak_strong, r.start, r.WS_probe.cells)
     ry = WSRY(nucleotide_to_purine_pyrimidine, r.start, r.RY_probe.cells)
-    print(ws)
-    print(ry)
-    print(r)
+    # print(ws)
+    # print(ry)
+    # print(r)
+    print(reconstruct(True, 0, "", ws, ry, r))
 
 
 main()
