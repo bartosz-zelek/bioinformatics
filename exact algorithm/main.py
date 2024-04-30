@@ -263,9 +263,6 @@ def main():
     r = fetch_test_data()
     ws = WSRY(nucleotide_to_weak_strong, r.start, r.WS_probe.cells)
     ry = WSRY(nucleotide_to_purine_pyrimidine, r.start, r.RY_probe.cells)
-    # print(ws)
-    # print(ry)
-    # print(r)
     print(reconstruct(False, len(ws.start_converted), "", False, ws, ry, r))
 
 
