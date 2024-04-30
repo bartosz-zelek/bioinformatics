@@ -108,6 +108,87 @@ def search_overlapings(
 # idealnym
 
 
+def add_ongoing_vertices_to_list(
+    is_reconstructed: bool,
+    reconstructed_dna_length: int,
+    reconstructed_dna: str,
+    s_space_empty: bool,
+    overlapings_ws: dict[str, int],
+    overlapings_ry: dict[str, int],
+    ws: WSRY,
+    ry: WSRY,
+    rd: ReconstructionData,
+):
+    _ws = copy.deepcopy(ws)
+    _ry = copy.deepcopy(ry)
+    _rd = copy.deepcopy(rd)
+    if is_reconstructed:
+        s_space_empty = True
+        return reconstruct(
+            is_reconstructed,
+            reconstructed_dna_length,
+            reconstructed_dna,
+            s_space_empty,
+            _ws,
+            _ry,
+            _rd,
+        )
+    max_overlap_ws = max(overlapings_ws.values())
+    max_overlap_ry = max(overlapings_ry.values())
+    for cell_ws, overlap_ws in overlapings_ws.items():
+        if (
+            overlap_ws != max_overlap_ws
+        ):  # take only cells with max overlap | should this problem take all overlaps?
+            continue
+        for cell_ry, overlap_ry in overlapings_ry.items():
+            if (
+                overlap_ry != max_overlap_ry
+                or overlap_ws != overlap_ry
+                or cell_ry[-1] != cell_ws[-1]
+                or rd.length < reconstructed_dna_length + (len(cell_ws) - overlap_ws)
+            ):  # take only cells with max overlap and the same last nucleotide and the same overlap and length of original dna is >= than reconstructed dna (for now)
+                continue
+            reconstructed_dna_length += len(cell_ws) - overlap_ws
+            _ws.path.append(cell_ws)
+            _ws.depth.append(overlap_ws)
+            _ws.start_converted += cell_ws[overlap_ws:]
+            _ws.cells_dict[cell_ws] = True
+            _ry.path.append(cell_ry)
+            _ry.depth.append(overlap_ry)
+            _ry.start_converted += cell_ry[overlap_ry:]
+            _ry.cells_dict[cell_ry] = True
+            (
+                is_reconstructed,
+                reconstructed_dna_length,
+                reconstructed_dna,
+                s_space_empty,
+                _ws,
+                _ry,
+                _rd,
+            ) = reconstruct(
+                is_reconstructed,
+                reconstructed_dna_length,
+                reconstructed_dna,
+                s_space_empty,
+                _ws,
+                _ry,
+                _rd,
+            )
+            _ws = copy.deepcopy(_ws)
+            _ry = copy.deepcopy(_ry)
+            _rd = copy.deepcopy(_rd)
+    s_space_empty = True
+    return reconstruct(
+        is_reconstructed,
+        reconstructed_dna_length,
+        reconstructed_dna,
+        s_space_empty,
+        _ws,
+        _ry,
+        _rd,
+    )
+
+
 def reconstruct(
     is_reconstructed: bool,
     reconstructed_dna_length: int,
@@ -165,8 +246,9 @@ def reconstruct(
         is_reconstructed = True  # for sure?
         return (
             is_reconstructed,
-            reconstructed_dna_length,
-            reconstructed_dna,
+            reconstructed_dna_length,  # seq_len / end_seq_len
+            reconstructed_dna,  # end_re
+            s_space_empty,
             _ws,
             _ry,
             _rd,
@@ -184,7 +266,7 @@ def main():
     # print(ws)
     # print(ry)
     # print(r)
-    print(reconstruct(False, 0, "", False, ws, ry, r))
+    print(reconstruct(False, len(ws.start_converted), "", False, ws, ry, r))
 
 
 main()
