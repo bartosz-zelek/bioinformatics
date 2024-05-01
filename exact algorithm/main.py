@@ -99,7 +99,7 @@ def search_overlapings(
 ):
     for cell in cells:
         max_overlap = check_overlap(oligo, cell, len(cell))
-        if not cells_dict[cell] and not max_overlap:
+        if not cells_dict[cell] and max_overlap:
             overlapings[cell] = max_overlap
 
 
@@ -113,7 +113,7 @@ def add_ongoing_vertices_to_list(
     reconstructed_dna_length: int,
     reconstructed_dna: str,
     s_space_empty: bool,
-    overlapings_ws: dict[str, int],
+    overlapings_ws: dict[str, int],  # gen_str -> res -> [sx, pos]
     overlapings_ry: dict[str, int],
     ws: WSRY,
     ry: WSRY,
@@ -133,17 +133,21 @@ def add_ongoing_vertices_to_list(
             _ry,
             _rd,
         )
-    max_overlap_ws = max(overlapings_ws.values())
-    max_overlap_ry = max(overlapings_ry.values())
-    for cell_ws, overlap_ws in overlapings_ws.items():
-        if (
-            overlap_ws != max_overlap_ws
-        ):  # take only cells with max overlap | should this problem take all overlaps?
-            continue
-        for cell_ry, overlap_ry in overlapings_ry.items():
+    # max_overlap_ws = max(overlapings_ws.values())
+    # max_overlap_ry = max(overlapings_ry.values())
+    for cell_ws, overlap_ws in sorted(
+        overlapings_ws.items(), key=lambda x: x[1], reverse=True
+    ):
+        # if (
+        #     overlap_ws != max_overlap_ws
+        # ):  # take only cells with max overlap | should this problem take all overlaps?
+        #     continue
+        for cell_ry, overlap_ry in sorted(
+            overlapings_ry.items(), key=lambda x: x[1], reverse=True
+        ):
             if (
-                overlap_ry != max_overlap_ry
-                or overlap_ws != overlap_ry
+                # overlap_ry != max_overlap_ry or
+                overlap_ws != overlap_ry
                 or cell_ry[-1] != cell_ws[-1]
                 or rd.length < reconstructed_dna_length + (len(cell_ws) - overlap_ws)
             ):  # take only cells with max overlap and the same last nucleotide and the same overlap and length of original dna is >= than reconstructed dna (for now)
@@ -256,7 +260,17 @@ def reconstruct(
     if len(reconstructed_dna) > reconstructed_dna_length or (
         s_space_empty and reconstructed_dna_length != len(reconstructed_dna)
     ):
-        pass
+        _ws.cells_dict[_ws.path[-1]] = False
+        _ry.cells_dict[_ry.path[-1]] = False
+
+        # dlugosc oligo - pokrycie - ???
+        _ws.start_converted[: -(len(_ws.path[-1]) - _ws.depth[-1])]
+        _ry.start_converted[: -(len(_ry.path[-1]) - _ry.depth[-1])]
+
+        _ws.path = _ws.path[:-1]
+        _ry.path = _ry.path[:-1]
+        _ws.depth = _ws.depth[:-1]
+        _ry.depth = _ry.depth[:-1]
 
 
 def main():
