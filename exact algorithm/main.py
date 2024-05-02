@@ -42,6 +42,9 @@ class WSRY:
                 connected += "A"
             elif temp == "WY":
                 connected += "T"
+            elif nucleotide_WS == nucleotide_RY:
+                connected += nucleotide_WS
+
         return connected
 
     def __init__(self, dict_convertion: dict, oligo: str, cells: dict):
@@ -73,21 +76,21 @@ def fetch_test_data(
     intensity: int = 0,
     position: int = 0,
     sqpe: int = 0,
-    sqne: int = 100,
+    sqne: int = 0,
     pose: int = 0,
 ):
     content = requests.get(
         f"https://www.cs.put.poznan.pl/pwawrzyniak/bio/bio.php?n={n}&k={k}&mode={mode}&intensity={intensity}&position={position}&sqpe={sqpe}&sqne={sqne}&pose={pose}"
     ).content
     data = xmltodict.parse(content)
+    print(data)
     return ReconstructionData(data)
 
 
 def check_overlap(oligo1, oligo2, probe):
-    max_overlap = 0
     for offset in range(probe - 1, 0, -1):
         if oligo1[probe - offset :] == oligo2[:offset]:
-            return max_overlap
+            return offset
     return 0
 
 
@@ -210,6 +213,7 @@ def reconstruct(
             is_reconstructed,
             reconstructed_dna_length,
             reconstructed_dna,
+            s_space_empty,
             _ws,
             _ry,
             _rd,
@@ -221,6 +225,7 @@ def reconstruct(
             is_reconstructed,
             reconstructed_dna_length,
             reconstructed_dna,
+            s_space_empty,
             _ws,
             _ry,
             _rd,
@@ -272,12 +277,38 @@ def reconstruct(
         _ws.depth = _ws.depth[:-1]
         _ry.depth = _ry.depth[:-1]
 
+        reconstructed_dna_length -= len(_ws.path[-1]) - _ws.depth[-1]
+        return (
+            is_reconstructed,
+            reconstructed_dna_length,
+            reconstructed_dna,
+            s_space_empty,
+            _ws,
+            _ry,
+            _rd,
+        )
+    return add_ongoing_vertices_to_list(
+        is_reconstructed,
+        reconstructed_dna_length,
+        reconstructed_dna,
+        s_space_empty,
+        overlapings_ws,
+        overlapings_ry,
+        _ws,
+        _ry,
+        _rd,
+    )
+
 
 def main():
     r = fetch_test_data()
     ws = WSRY(nucleotide_to_weak_strong, r.start, r.WS_probe.cells)
     ry = WSRY(nucleotide_to_purine_pyrimidine, r.start, r.RY_probe.cells)
-    print(reconstruct(False, len(ws.start_converted), "", False, ws, ry, r))
+    rec = reconstruct(False, len(ws.start_converted), "", False, ws, ry, r)
+    res = WSRY.connect_WS_RY(rec[4].start_converted, rec[5].start_converted)
+    print(rec)
+    print(res)
+    print(len(res))
 
 
 main()
