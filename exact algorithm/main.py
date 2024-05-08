@@ -1,7 +1,8 @@
 import requests
 import xmltodict
-import copy
 from reconstruction_data import ReconstructionData
+import pprint
+import copy
 
 
 nucleotide_to_weak_strong = {
@@ -20,8 +21,10 @@ nucleotide_to_purine_pyrimidine = {
 
 
 class WSRY:
-    # convert oligo to WS or RY according to the given dictionary without last nucleotide
+    """Store data for WS or RY cells and provide methods to work with them."""
+
     def convert_oligo(self, oligo: str) -> str:
+        """convert oligo to WS or RY according to the given dictionary without last nucleotide"""
         half = ""
         for i in range(len(oligo) - 1):
             half += self.dict_convertion[oligo[i]]
@@ -30,10 +33,11 @@ class WSRY:
         return half
 
     @staticmethod
-    def connect_WS_RY(oligo_WS: str, oligo_RY) -> str:
+    def connect_ws_ry(oligo_ws: str, oligo_ry) -> str:
+        """Connects WS and RY oligos according to the rules."""
         connected = ""
-        for nucleotide_WS, nucleotide_RY in zip(oligo_WS, oligo_RY):
-            temp = nucleotide_WS + nucleotide_RY
+        for nucleotide_ws, nucleotide_ry in zip(oligo_ws, oligo_ry):
+            temp = nucleotide_ws + nucleotide_ry
             if temp == "SR":
                 connected += "G"
             elif temp == "SY":
@@ -42,8 +46,12 @@ class WSRY:
                 connected += "A"
             elif temp == "WY":
                 connected += "T"
-            elif nucleotide_WS == nucleotide_RY:
-                connected += nucleotide_WS
+            elif nucleotide_ws == nucleotide_ry:
+                connected += nucleotide_ws
+            else:
+                raise ValueError(
+                    f"Invalid nucleotides: {nucleotide_ws}, {nucleotide_ry}"
+                )
 
         return connected
 
@@ -70,24 +78,28 @@ class WSRY:
 
 
 def fetch_test_data(
-    n: int = 500,
-    k: int = 10,
+    n: int = 16,
+    k: int = 4,
     mode: str = "binary",
     intensity: int = 0,
     position: int = 0,
     sqpe: int = 0,
     sqne: int = 0,
     pose: int = 0,
-):
+) -> ReconstructionData:
+    """Fetches test data from server"""
     content = requests.get(
-        f"https://www.cs.put.poznan.pl/pwawrzyniak/bio/bio.php?n={n}&k={k}&mode={mode}&intensity={intensity}&position={position}&sqpe={sqpe}&sqne={sqne}&pose={pose}"
+        f"https://www.cs.put.poznan.pl/pwawrzyniak/bio/bio.php?n={n}&k={k}&mode={mode}&intensity={intensity}&position={position}&sqpe={sqpe}&sqne={sqne}&pose={pose}",
+        timeout=10,
     ).content
+    if not content:
+        raise requests.exceptions.RequestException("Failed to fetch test data")
     data = xmltodict.parse(content)
-    print(data)
     return ReconstructionData(data)
 
 
-def check_overlap(oligo1, oligo2, probe):
+def check_overlap(oligo1: str, oligo2: str, probe: int) -> int:
+    """Return maximum overlap between two oligos."""
     for offset in range(probe - 1, 0, -1):
         if oligo1[probe - offset :] == oligo2[:offset]:
             return offset
@@ -98,12 +110,14 @@ def search_overlapings(
     oligo: str,
     cells: list[str],
     cells_dict: dict[str, bool],
-    overlapings: dict[str, int],
-):
+) -> dict[str, int]:
+    """For oligo check every cell and return dict with overlapings."""
+    overlapings: dict[str, int] = dict()
     for cell in cells:
         max_overlap = check_overlap(oligo, cell, len(cell))
         if not cells_dict[cell] and max_overlap:
             overlapings[cell] = max_overlap
+    return overlapings
 
 
 # Jeżeli przez liczbę błędów negatywnych obu części spektrum
@@ -111,204 +125,87 @@ def search_overlapings(
 # idealnym
 
 
+def add_new_vertex_to_solution(
+    candidates: tuple[tuple[str, str, int], ...],
+    ws: WSRY,
+    ry: WSRY,
+    r: ReconstructionData,
+) -> tuple[tuple[tuple[str, str, int], ...], WSRY, WSRY]:
+    """return copies of ws and ry with added candidate to the solution. Remove candidate from the list of candidates. raise ValueError if no candidates to add."""
+    ws = copy.deepcopy(ws)
+    ry = copy.deepcopy(ry)
+    # TODO: sprawdź czy rozszerzone ścieżki nie przekroczą maksymalnej dopuszczalnej długości oraz
+    # czy w przypadku nałożenia mniejszego niż maksymalne, powiększony o odpowiednią
+    # wartość licznik takich nałożeń wciąż znajduje się poniżej limitu ustalonego dla poszukiwanego rozwiązania
+    for candidate in candidates:
+        ws.path.append(candidate[0])
+        ws.depth.append(candidate[2])
+        ry.path.append(candidate[1])
+        ry.depth.append(candidate[2])
+        tmp_solution_length = len(ws.path[0]) + sum(
+            [len(ws.path[0]) - depth for depth in ws.depth if depth > 0]
+        )
+        if tmp_solution_length > r.length:
+            ws.path.pop()
+            ws.depth.pop()
+            ry.path.pop()
+            ry.depth.pop()
+            continue
+
+        ws.cells_dict[candidate[1]] = True
+        ret_candidates = list(candidates)
+        ret_candidates.remove(candidate)
+        return tuple(ret_candidates), ws, ry
+
+    raise ValueError("No candidates to add to the solution.")
+
+
 def add_ongoing_vertices_to_list(
-    is_reconstructed: bool,
-    reconstructed_dna_length: int,
-    reconstructed_dna: str,
-    s_space_empty: bool,
-    overlapings_ws: dict[str, int],  # gen_str -> res -> [sx, pos]
-    overlapings_ry: dict[str, int],
-    ws: WSRY,
-    ry: WSRY,
-    rd: ReconstructionData,
-):
-    _ws = copy.deepcopy(ws)
-    _ry = copy.deepcopy(ry)
-    _rd = copy.deepcopy(rd)
-    if is_reconstructed:
-        s_space_empty = True
-        return reconstruct(
-            is_reconstructed,
-            reconstructed_dna_length,
-            reconstructed_dna,
-            s_space_empty,
-            _ws,
-            _ry,
-            _rd,
-        )
-    # max_overlap_ws = max(overlapings_ws.values())
-    # max_overlap_ry = max(overlapings_ry.values())
-    for cell_ws, overlap_ws in sorted(
-        overlapings_ws.items(), key=lambda x: x[1], reverse=True
-    ):
-        # if (
-        #     overlap_ws != max_overlap_ws
-        # ):  # take only cells with max overlap | should this problem take all overlaps?
-        #     continue
-        for cell_ry, overlap_ry in sorted(
-            overlapings_ry.items(), key=lambda x: x[1], reverse=True
-        ):
-            if (
-                # overlap_ry != max_overlap_ry or
-                overlap_ws != overlap_ry
-                or cell_ry[-1] != cell_ws[-1]
-                or rd.length < reconstructed_dna_length + (len(cell_ws) - overlap_ws)
-            ):  # take only cells with max overlap and the same last nucleotide and the same overlap and length of original dna is >= than reconstructed dna (for now)
-                continue
-            reconstructed_dna_length += len(cell_ws) - overlap_ws
-            _ws.path.append(cell_ws)
-            _ws.depth.append(overlap_ws)
-            _ws.start_converted += cell_ws[overlap_ws:]
-            _ws.cells_dict[cell_ws] = True
-            _ry.path.append(cell_ry)
-            _ry.depth.append(overlap_ry)
-            _ry.start_converted += cell_ry[overlap_ry:]
-            _ry.cells_dict[cell_ry] = True
-            (
-                is_reconstructed,
-                reconstructed_dna_length,
-                reconstructed_dna,
-                s_space_empty,
-                _ws,
-                _ry,
-                _rd,
-            ) = reconstruct(
-                is_reconstructed,
-                reconstructed_dna_length,
-                reconstructed_dna,
-                s_space_empty,
-                _ws,
-                _ry,
-                _rd,
-            )
-            _ws = copy.deepcopy(_ws)
-            _ry = copy.deepcopy(_ry)
-            _rd = copy.deepcopy(_rd)
-    s_space_empty = True
-    return reconstruct(
-        is_reconstructed,
-        reconstructed_dna_length,
-        reconstructed_dna,
-        s_space_empty,
-        _ws,
-        _ry,
-        _rd,
+    ws: WSRY, ry: WSRY
+) -> tuple[tuple[str, str, int], ...]:
+    """Add not used vertices to the list of candidates(ws,ry,overlap). Return sorted by overlap tuple of candidates."""
+    candidates: list[tuple[str, str, int]] = list()
+    last_added_path_ws = ws.path[-1]
+    last_added_path_ry = ry.path[-1]
+    tmp_last_ws = (
+        last_added_path_ws[:-1] + nucleotide_to_weak_strong[last_added_path_ry[-1]]
+    )
+    tmp_last_ry = (
+        last_added_path_ry[:-1]
+        + nucleotide_to_purine_pyrimidine[last_added_path_ws[-1]]
     )
 
+    for vertex_ws in ws.cells_dict:  # for (VertexW S ← OverlapSet) do
+        if not ws.cells_dict[vertex_ws]:
+            for vertex_ry in ry.cells_dict:  # for (VertexRY ← OverlapSet) do
+                if not ry.cells_dict[vertex_ry]:
+                    if (
+                        vertex_ws[-1] == vertex_ry[-1]
+                    ):  # if (sameLastNucleotide(VertexW S, VertexRY ) = TRUE) then
+                        overlap_ws, overlap_ry = check_overlap(
+                            tmp_last_ws, vertex_ws, len(vertex_ws)
+                        ), check_overlap(tmp_last_ry, vertex_ry, len(vertex_ry))
+                        if overlap_ws == overlap_ry and overlap_ws > 0:
+                            candidates.append(
+                                (vertex_ws, vertex_ry, overlap_ws)
+                            )  # Candidates ← addPair(VertexW S, VertexRY );
 
-def reconstruct(
-    is_reconstructed: bool,
-    reconstructed_dna_length: int,
-    reconstructed_dna: str,
-    s_space_empty: bool,
-    ws: WSRY,
-    ry: WSRY,
-    rd: ReconstructionData,
-):
-    _ws = copy.deepcopy(ws)
-    _ry = copy.deepcopy(ry)
-    _rd = copy.deepcopy(rd)
-    if is_reconstructed:
-        return (
-            is_reconstructed,
-            reconstructed_dna_length,
-            reconstructed_dna,
-            s_space_empty,
-            _ws,
-            _ry,
-            _rd,
-        )
-    if _rd.length == reconstructed_dna_length:
-        is_reconstructed = True
-        reconstructed_dna = WSRY.connect_WS_RY(_ws.start_converted, _ry.start_converted)
-        return (
-            is_reconstructed,
-            reconstructed_dna_length,
-            reconstructed_dna,
-            s_space_empty,
-            _ws,
-            _ry,
-            _rd,
-        )
-
-    _ws.start_converted = (
-        _ws.start_converted[:-1] + nucleotide_to_weak_strong[_ws.start_converted[-1]]
-    )  # change last nucleotide to WS
-    _ry.start_converted = (
-        _ry.start_converted[:-1]
-        + nucleotide_to_purine_pyrimidine[_ry.start_converted[-1]]
-    )  # change last nucleotide to RY
-
-    overlapings_ws: dict[str, int] = dict()
-    overlapings_ry: dict[str, int] = dict()
-    search_overlapings(
-        _ws.start_converted, _rd.WS_probe.cells, _ws.cells_dict, overlapings_ws
-    )
-    search_overlapings(
-        _ry.start_converted, _rd.RY_probe.cells, _ry.cells_dict, overlapings_ry
-    )
-    if (
-        not overlapings_ry or not overlapings_ws
-    ):  # some of chips does not have any overlapings
-        # what to return here?
-        print("NO OVERLAPINGS!")
-        is_reconstructed = True  # for sure?
-        return (
-            is_reconstructed,
-            reconstructed_dna_length,  # seq_len / end_seq_len
-            reconstructed_dna,  # end_re
-            s_space_empty,
-            _ws,
-            _ry,
-            _rd,
-        )
-    if len(reconstructed_dna) > reconstructed_dna_length or (
-        s_space_empty and reconstructed_dna_length != len(reconstructed_dna)
-    ):
-        _ws.cells_dict[_ws.path[-1]] = False
-        _ry.cells_dict[_ry.path[-1]] = False
-
-        # dlugosc oligo - pokrycie - ???
-        _ws.start_converted[: -(len(_ws.path[-1]) - _ws.depth[-1])]
-        _ry.start_converted[: -(len(_ry.path[-1]) - _ry.depth[-1])]
-
-        _ws.path = _ws.path[:-1]
-        _ry.path = _ry.path[:-1]
-        _ws.depth = _ws.depth[:-1]
-        _ry.depth = _ry.depth[:-1]
-
-        reconstructed_dna_length -= len(_ws.path[-1]) - _ws.depth[-1]
-        return (
-            is_reconstructed,
-            reconstructed_dna_length,
-            reconstructed_dna,
-            s_space_empty,
-            _ws,
-            _ry,
-            _rd,
-        )
-    return add_ongoing_vertices_to_list(
-        is_reconstructed,
-        reconstructed_dna_length,
-        reconstructed_dna,
-        s_space_empty,
-        overlapings_ws,
-        overlapings_ry,
-        _ws,
-        _ry,
-        _rd,
-    )
+    return tuple(sorted(candidates, key=lambda x: x[2], reverse=True))
 
 
-def main():
-    r = fetch_test_data()
-    ws = WSRY(nucleotide_to_weak_strong, r.start, r.WS_probe.cells)
-    ry = WSRY(nucleotide_to_purine_pyrimidine, r.start, r.RY_probe.cells)
-    rec = reconstruct(False, len(ws.start_converted), "", False, ws, ry, r)
-    res = WSRY.connect_WS_RY(rec[4].start_converted, rec[5].start_converted)
-    print(rec)
-    print(res)
-    print(len(res))
+def main() -> None:
+    """Main function of the program."""
+    r: ReconstructionData = fetch_test_data()
+    ws: WSRY = WSRY(nucleotide_to_weak_strong, r.start, r.ws_probe.cells)
+    ry: WSRY = WSRY(nucleotide_to_purine_pyrimidine, r.start, r.ry_probe.cells)
+    print(r)
+    print(ws)
+    print(ry)
+    solution: list = list(r.start)
+
+    candidates = add_ongoing_vertices_to_list(ws, ry)
+    print(candidates, sep="\n")
+    print(*add_new_vertex_to_solution(candidates, ws, ry, r), sep="\n")
 
 
 main()
