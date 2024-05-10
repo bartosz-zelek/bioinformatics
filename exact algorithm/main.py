@@ -5,6 +5,7 @@ import copy
 import requests
 import xmltodict
 from reconstruction_data import ReconstructionData
+from typing import Optional
 
 # set max depth of recursion
 
@@ -39,9 +40,7 @@ class WSRY:
 
     def get_tmp_length_solution(self) -> int:
         """Return length of the current solution."""
-        return len(self.path[0]) + sum(
-            [len(self.path[0]) - depth for depth in self.depth if depth > 0]
-        )
+        return sum([len(self.path[0]) - depth for depth in self.depth])
 
     @staticmethod
     def connect_ws_ry(oligo_ws: str, oligo_ry) -> str:
@@ -95,7 +94,7 @@ def fetch_test_data(
     intensity: int = 0,
     position: int = 0,
     sqpe: int = 0,
-    sqne: int = 4,
+    sqne: int = 0,
     pose: int = 0,
 ) -> ReconstructionData:
     """Fetches test data from server"""
@@ -207,13 +206,58 @@ def add_new_vertex_to_solution(
     raise ValueError("No candidates to add to the solution.")
 
 
+def reconstruct(
+    ws: WSRY,
+    ry: WSRY,
+    r: ReconstructionData,
+    solutions: list[tuple[WSRY, WSRY, int]],
+    narrowed_candidates: Optional[tuple[tuple[str, str, int], ...]] = None,
+):
+    if narrowed_candidates is not None and len(narrowed_candidates) == 0:
+        return
+
+    if narrowed_candidates is None:
+        candidates = add_ongoing_vertices_to_list(ws, ry)
+    else:
+        candidates = narrowed_candidates
+
+    try:
+        _, ws, ry = add_new_vertex_to_solution(candidates, ws, ry, r)
+        reconstruct(ws, ry, r, solutions)
+        return
+    except ValueError:
+        tmp_solution_length = ws.get_tmp_length_solution()
+        if tmp_solution_length == r.length:
+            solutions.append((ws, ry, tmp_solution_length))
+            return
+        else:
+            if len(solutions) == 0:
+                solutions.append((ws, ry, tmp_solution_length))
+            else:
+                if tmp_solution_length > solutions[0][2]:
+                    solutions.clear()
+                    solutions.append((ws, ry, tmp_solution_length))
+    # reverse
+    ws = copy.deepcopy(ws)
+    ry = copy.deepcopy(ry)
+    narr_candidates: list[tuple[str, str, int]] = list(candidates)
+    narr_candidates.remove((ws.path[-1], ry.path[-1], ws.depth[-1]))
+    ws.cells_dict[ws.path[-1]] = False
+    ry.cells_dict[ry.path[-1]] = False
+    ws.path.pop()
+    ws.depth.pop()
+    ry.path.pop()
+    ry.depth.pop()
+    reconstruct(ws, ry, r, solutions, tuple(narr_candidates))
+
+
 def main() -> None:
     """Main function of the program."""
     r: ReconstructionData = fetch_test_data()
     ws: WSRY = WSRY(nucleotide_to_weak_strong, r.start, r.ws_probe.cells)
     ry: WSRY = WSRY(nucleotide_to_purine_pyrimidine, r.start, r.ry_probe.cells)
-    solutions: list[tuple[WSRY, WSRY]] = list()
-    # reconstruct(ws, ry, r, solutions)
+    solutions: list[tuple[WSRY, WSRY, int]] = list()
+    reconstruct(ws, ry, r, solutions)
     print(solutions)
 
 
