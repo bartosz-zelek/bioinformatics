@@ -1,9 +1,14 @@
+"""Main module of the program."""
+
+import sys
+import copy
 import requests
 import xmltodict
 from reconstruction_data import ReconstructionData
-import pprint
-import copy
 
+# set max depth of recursion
+
+sys.setrecursionlimit(10**6)
 
 nucleotide_to_weak_strong = {
     "A": "W",
@@ -31,6 +36,12 @@ class WSRY:
         half += oligo[-1]
 
         return half
+
+    def get_tmp_length_solution(self) -> int:
+        """Return length of the current solution."""
+        return len(self.path[0]) + sum(
+            [len(self.path[0]) - depth for depth in self.depth if depth > 0]
+        )
 
     @staticmethod
     def connect_ws_ry(oligo_ws: str, oligo_ry) -> str:
@@ -84,7 +95,7 @@ def fetch_test_data(
     intensity: int = 0,
     position: int = 0,
     sqpe: int = 0,
-    sqne: int = 0,
+    sqne: int = 4,
     pose: int = 0,
 ) -> ReconstructionData:
     """Fetches test data from server"""
@@ -125,45 +136,13 @@ def search_overlapings(
 # idealnym
 
 
-def add_new_vertex_to_solution(
-    candidates: tuple[tuple[str, str, int], ...],
-    ws: WSRY,
-    ry: WSRY,
-    r: ReconstructionData,
-) -> tuple[tuple[tuple[str, str, int], ...], WSRY, WSRY]:
-    """return copies of ws and ry with added candidate to the solution. Remove candidate from the list of candidates. raise ValueError if no candidates to add."""
-    ws = copy.deepcopy(ws)
-    ry = copy.deepcopy(ry)
-    # TODO: sprawdź czy rozszerzone ścieżki nie przekroczą maksymalnej dopuszczalnej długości oraz
-    # czy w przypadku nałożenia mniejszego niż maksymalne, powiększony o odpowiednią
-    # wartość licznik takich nałożeń wciąż znajduje się poniżej limitu ustalonego dla poszukiwanego rozwiązania
-    for candidate in candidates:
-        ws.path.append(candidate[0])
-        ws.depth.append(candidate[2])
-        ry.path.append(candidate[1])
-        ry.depth.append(candidate[2])
-        tmp_solution_length = len(ws.path[0]) + sum(
-            [len(ws.path[0]) - depth for depth in ws.depth if depth > 0]
-        )
-        if tmp_solution_length > r.length:
-            ws.path.pop()
-            ws.depth.pop()
-            ry.path.pop()
-            ry.depth.pop()
-            continue
-
-        ws.cells_dict[candidate[1]] = True
-        ret_candidates = list(candidates)
-        ret_candidates.remove(candidate)
-        return tuple(ret_candidates), ws, ry
-
-    raise ValueError("No candidates to add to the solution.")
-
-
 def add_ongoing_vertices_to_list(
     ws: WSRY, ry: WSRY
 ) -> tuple[tuple[str, str, int], ...]:
     """Add not used vertices to the list of candidates(ws,ry,overlap). Return sorted by overlap tuple of candidates."""
+    ws = copy.deepcopy(ws)
+    ry = copy.deepcopy(ry)
+
     candidates: list[tuple[str, str, int]] = list()
     last_added_path_ws = ws.path[-1]
     last_added_path_ry = ry.path[-1]
@@ -193,19 +172,49 @@ def add_ongoing_vertices_to_list(
     return tuple(sorted(candidates, key=lambda x: x[2], reverse=True))
 
 
+def add_new_vertex_to_solution(
+    candidates: tuple[tuple[str, str, int], ...],
+    ws: WSRY,
+    ry: WSRY,
+    r: ReconstructionData,
+) -> tuple[tuple[tuple[str, str, int], ...], WSRY, WSRY]:
+    """return copies of ws and ry with added candidate to the solution. Remove candidate from the list of candidates. raise ValueError if no candidates to add."""
+    ws = copy.deepcopy(ws)
+    ry = copy.deepcopy(ry)
+
+    # TODO: sprawdź czy rozszerzone ścieżki nie przekroczą maksymalnej dopuszczalnej długości oraz
+    # czy w przypadku nałożenia mniejszego niż maksymalne, powiększony o odpowiednią
+    # wartość licznik takich nałożeń wciąż znajduje się poniżej limitu ustalonego dla poszukiwanego rozwiązania
+    for candidate in candidates:
+        ws.path.append(candidate[0])
+        ws.depth.append(candidate[2])
+        ry.path.append(candidate[1])
+        ry.depth.append(candidate[2])
+
+        if ws.get_tmp_length_solution() > r.length:
+            ws.path.pop()
+            ws.depth.pop()
+            ry.path.pop()
+            ry.depth.pop()
+            continue
+
+        ws.cells_dict[candidate[0]] = True
+        ry.cells_dict[candidate[1]] = True
+        ret_candidates = list(candidates)
+        ret_candidates.remove(candidate)
+        return tuple(ret_candidates), ws, ry
+
+    raise ValueError("No candidates to add to the solution.")
+
+
 def main() -> None:
     """Main function of the program."""
     r: ReconstructionData = fetch_test_data()
     ws: WSRY = WSRY(nucleotide_to_weak_strong, r.start, r.ws_probe.cells)
     ry: WSRY = WSRY(nucleotide_to_purine_pyrimidine, r.start, r.ry_probe.cells)
-    print(r)
-    print(ws)
-    print(ry)
-    solution: list = list(r.start)
-
-    candidates = add_ongoing_vertices_to_list(ws, ry)
-    print(candidates, sep="\n")
-    print(*add_new_vertex_to_solution(candidates, ws, ry, r), sep="\n")
+    solutions: list[tuple[WSRY, WSRY]] = list()
+    # reconstruct(ws, ry, r, solutions)
+    print(solutions)
 
 
 main()
