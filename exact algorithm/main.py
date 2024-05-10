@@ -4,10 +4,9 @@ import sys
 import copy
 import requests
 import xmltodict
-from reconstruction_data import ReconstructionData
 from typing import Optional
+from reconstruction_data import ReconstructionData
 
-# set max depth of recursion
 
 sys.setrecursionlimit(10**6)
 
@@ -80,12 +79,6 @@ class WSRY:
     def __repr__(self) -> str:
         return f"Start: {self.start_converted} Path: {self.path} Depth: {self.depth}"
 
-    # start_converted: str = None  # set_first - Z_set_first
-    # dict_convertion: dict = None
-    # cells_dict: dict = None  # ols
-    # path: list[str] = None
-    # depth: list[int] = None
-
 
 def fetch_test_data(
     n: int = 16,
@@ -116,23 +109,9 @@ def check_overlap(oligo1: str, oligo2: str, probe: int) -> int:
     return 0
 
 
-def search_overlapings(
-    oligo: str,
-    cells: list[str],
-    cells_dict: dict[str, bool],
-) -> dict[str, int]:
-    """For oligo check every cell and return dict with overlapings."""
-    overlapings: dict[str, int] = dict()
-    for cell in cells:
-        max_overlap = check_overlap(oligo, cell, len(cell))
-        if not cells_dict[cell] and max_overlap:
-            overlapings[cell] = max_overlap
-    return overlapings
-
-
 # Jeżeli przez liczbę błędów negatywnych obu części spektrum
 # oznaczymy różnicę pomiędzy liczbą ich elementów a liczbą elementów w spektrum
-# idealnym
+# idealnym[...]
 
 
 def add_ongoing_vertices_to_list(
@@ -145,6 +124,7 @@ def add_ongoing_vertices_to_list(
     candidates: list[tuple[str, str, int]] = list()
     last_added_path_ws = ws.path[-1]
     last_added_path_ry = ry.path[-1]
+    # temporarly convert last nucleotide for easier comparison
     tmp_last_ws = (
         last_added_path_ws[:-1] + nucleotide_to_weak_strong[last_added_path_ry[-1]]
     )
@@ -159,14 +139,14 @@ def add_ongoing_vertices_to_list(
                 if not ry.cells_dict[vertex_ry]:
                     if (
                         vertex_ws[-1] == vertex_ry[-1]
-                    ):  # if (sameLastNucleotide(VertexW S, VertexRY ) = TRUE) then
+                    ):  # if (sameLastNucleotide(VertexWS, VertexRY) = TRUE) then
                         overlap_ws, overlap_ry = check_overlap(
                             tmp_last_ws, vertex_ws, len(vertex_ws)
                         ), check_overlap(tmp_last_ry, vertex_ry, len(vertex_ry))
                         if overlap_ws == overlap_ry and overlap_ws > 0:
                             candidates.append(
                                 (vertex_ws, vertex_ry, overlap_ws)
-                            )  # Candidates ← addPair(VertexW S, VertexRY );
+                            )  # Candidates ← addPair(VertexWS, VertexRY);
 
     return tuple(sorted(candidates, key=lambda x: x[2], reverse=True))
 
@@ -237,7 +217,8 @@ def reconstruct(
                 if tmp_solution_length > solutions[0][2]:
                     solutions.clear()
                     solutions.append((ws, ry, tmp_solution_length))
-    # reverse
+
+    # reverse steps
     ws = copy.deepcopy(ws)
     ry = copy.deepcopy(ry)
     narr_candidates: list[tuple[str, str, int]] = list(candidates)
