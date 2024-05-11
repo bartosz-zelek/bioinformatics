@@ -42,7 +42,7 @@ class WSRY:
         return sum([len(self.path[0]) - depth for depth in self.depth])
 
     @staticmethod
-    def connect_ws_ry(oligo_ws: str, oligo_ry) -> str:
+    def connect_ws_ry(oligo_ws: str, oligo_ry: str) -> str:
         """Connects WS and RY oligos according to the rules."""
         connected = ""
         for nucleotide_ws, nucleotide_ry in zip(oligo_ws, oligo_ry):
