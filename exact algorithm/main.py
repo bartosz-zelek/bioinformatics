@@ -115,7 +115,7 @@ def check_overlap(oligo1: str, oligo2: str, probe: int) -> int:
 
 
 def add_ongoing_vertices_to_list(
-    ws: WSRY, ry: WSRY
+    ws: WSRY, ry: WSRY, no_more_errors: bool = False
 ) -> tuple[tuple[str, str, int], ...]:
     """Add not used vertices to the list of candidates(ws,ry,overlap). Return sorted by overlap tuple of candidates."""
     ws = copy.deepcopy(ws)
@@ -143,10 +143,11 @@ def add_ongoing_vertices_to_list(
                         overlap_ws, overlap_ry = check_overlap(
                             tmp_last_ws, vertex_ws, len(vertex_ws)
                         ), check_overlap(tmp_last_ry, vertex_ry, len(vertex_ry))
-                        if overlap_ws == overlap_ry and overlap_ws > 0:
-                            candidates.append(
-                                (vertex_ws, vertex_ry, overlap_ws)
-                            )  # Candidates ← addPair(VertexWS, VertexRY);
+                        if not no_more_errors:
+                            if overlap_ws == overlap_ry and overlap_ws > 0:
+                                candidates.append(
+                                    (vertex_ws, vertex_ry, overlap_ws)
+                                )  # Candidates ← addPair(VertexWS, VertexRY);
 
     return tuple(sorted(candidates, key=lambda x: x[2], reverse=True))
 
@@ -197,7 +198,13 @@ def reconstruct(
         return
 
     if narrowed_candidates is None:
-        candidates = add_ongoing_vertices_to_list(ws, ry)
+        # Use depth to check if we go all errors already to set no_more_errors flag
+        # if ws.depth[-1] == r.length:
+        #     no_more_errors = True
+        # else:
+        #     no_more_errors = False
+        no_more_errors = ws.depth[-1] == r.length
+        candidates = add_ongoing_vertices_to_list(ws, ry, no_more_errors)
     else:
         candidates = narrowed_candidates
 
