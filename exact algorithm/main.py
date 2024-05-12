@@ -1,12 +1,12 @@
 """Main module of the program."""
 
-import sys
 import copy
+import sys
+from typing import Optional
+
 import requests
 import xmltodict
-from typing import Optional
 from reconstruction_data import ReconstructionData
-
 
 sys.setrecursionlimit(10**6)
 
@@ -222,7 +222,13 @@ def reconstruct(
     ws = copy.deepcopy(ws)
     ry = copy.deepcopy(ry)
     narr_candidates: list[tuple[str, str, int]] = list(candidates)
-    narr_candidates.remove((ws.path[-1], ry.path[-1], ws.depth[-1]))
+    try:
+        # sometimes it throws an exception, because the candidate is not in the list
+        # then solution got only start oligo
+        # what to do in this case?
+        narr_candidates.remove((ws.path[-1], ry.path[-1], ws.depth[-1]))
+    except Exception:
+        pass
     ws.cells_dict[ws.path[-1]] = False
     ry.cells_dict[ry.path[-1]] = False
     ws.path.pop()
@@ -246,7 +252,8 @@ def main() -> None:
     ):
         connected = WSRY.connect_ws_ry(ws_oligo, ry_oligo)
         reconstructed_dna += connected[depth - len(ws_oligo) :]
-    print(reconstructed_dna)
+    print(reconstructed_dna, end=" ")
+    print(len(reconstructed_dna))
 
 
 main()
