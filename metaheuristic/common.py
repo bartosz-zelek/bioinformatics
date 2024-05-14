@@ -1,6 +1,7 @@
+"""Common functions for metaheuristic algorithms."""
+
 import requests
 import xmltodict
-from wsry import WSRY
 from reconstruction_data import ReconstructionData
 
 nucleotide_to_weak_strong = {
@@ -45,15 +46,3 @@ def check_overlap(oligo1: str, oligo2: str, probe: int) -> int:
         if oligo1[probe - offset :] == oligo2[:offset]:
             return offset
     return 0
-
-
-class TripleWSRY:
-    """Store triple of WS, RY and overlap and provide method to compare them."""
-
-    def __init__(self, ws: WSRY, ry: WSRY, overlap: int):
-        self.ws = ws
-        self.ry = ry
-        self.overlap = overlap
-
-    def __lt__(self, other):
-        return self.overlap < other.overlap

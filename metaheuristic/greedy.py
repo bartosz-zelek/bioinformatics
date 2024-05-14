@@ -9,18 +9,6 @@ from common import (
 )
 
 
-class TripleWSRY:
-    """Store triple of WS, RY and overlap and provide method to compare them."""
-
-    def __init__(self, ws: WSRY, ry: WSRY, overlap: int):
-        self.ws = ws
-        self.ry = ry
-        self.overlap = overlap
-
-    def __lt__(self, other):
-        return self.overlap < other.overlap
-
-
 def first_nonzero_overlap_pair(ws: WSRY, ry: WSRY) -> Optional[tuple[str, str, int]]:
     """
     Find the biggest overlap between last added and not used oligos (according to the rules).

@@ -223,11 +223,11 @@ def reconstruct(
     ry = copy.deepcopy(ry)
     narr_candidates: list[tuple[str, str, int]] = list(candidates)
     try:
-        # sometimes it throws an exception, because the candidate is not in the list
+        # sometimes it throws a ValueError exception, because the candidate is not in the list
         # then solution got only start oligo
         # what to do in this case?
         narr_candidates.remove((ws.path[-1], ry.path[-1], ws.depth[-1]))
-    except Exception:
+    except ValueError:
         pass
     ws.cells_dict[ws.path[-1]] = False
     ry.cells_dict[ry.path[-1]] = False

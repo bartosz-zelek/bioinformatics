@@ -4,19 +4,6 @@
 class WSRY:
     """Store data for WS or RY cells and provide methods to work with them."""
 
-    def convert_oligo(self, oligo: str) -> str:
-        """convert oligo to WS or RY according to the given dictionary without last nucleotide"""
-        half = ""
-        for i in range(len(oligo) - 1):
-            half += self.dict_convertion[oligo[i]]
-        half += oligo[-1]
-
-        return half
-
-    def get_tmp_length_solution(self) -> int:
-        """Return length of the current solution."""
-        return sum([len(self.path[0]) - depth for depth in self.depth])
-
     @staticmethod
     def connect_ws_ry(oligo_ws: str, oligo_ry: str) -> str:
         """Connects WS and RY oligos according to the rules."""
@@ -51,6 +38,23 @@ class WSRY:
 
         self.path = [self.start_converted]
         self.depth = [0]
+
+    def convert_oligo(self, oligo: str) -> str:
+        """convert oligo to WS or RY according to the given dictionary without last nucleotide"""
+        half = ""
+        for i in range(len(oligo) - 1):
+            half += self.dict_convertion[oligo[i]]
+        half += oligo[-1]
+
+        return half
+
+    def get_tmp_length_solution(self) -> int:
+        """Return length of the current solution."""
+        return sum([len(self.path[0]) - depth for depth in self.depth])
+
+    def not_used_oligos(self) -> tuple[str, ...]:
+        """Return oligos that are not used in the solution."""
+        return tuple([oligo for oligo in self.cells_dict if not self.cells_dict[oligo]])
 
     def __repr__(self) -> str:
         return f"Start: {self.start_converted} Path: {self.path} Depth: {self.depth}"
