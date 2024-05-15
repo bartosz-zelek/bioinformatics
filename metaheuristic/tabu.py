@@ -6,7 +6,11 @@ import random
 from enum import Enum
 from typing import Optional
 from wsry import WSRY
-from common import check_overlap
+from common import (
+    check_overlap,
+    nucleotide_to_weak_strong,
+    nucleotide_to_purine_pyrimidine,
+)
 from reconstruction_data import ReconstructionData
 
 
@@ -61,17 +65,23 @@ class Tabu:
         previous_oligo_ry = ry.path[idx_to_insert - 1]
 
         random.shuffle(not_used_not_tabu_oligos_ws)
-        random.shuffle(not_used_not_tabu_oligos_ry)  # is it necessary?
         for tmp_oligo_ws in not_used_not_tabu_oligos_ws:
             for tmp_oligo_ry in not_used_not_tabu_oligos_ry:
                 if tmp_oligo_ws[-1] == tmp_oligo_ry[-1]:
                     oligo_ws_overlap = check_overlap(
-                        previous_oligo_ws, tmp_oligo_ws, len(tmp_oligo_ws)
+                        previous_oligo_ws[:-1]
+                        + nucleotide_to_weak_strong[previous_oligo_ws[-1]],
+                        tmp_oligo_ws,
+                        len(tmp_oligo_ws),
                     )
                     oligo_ry_overlap = check_overlap(
-                        previous_oligo_ry, tmp_oligo_ry, len(tmp_oligo_ry)
+                        previous_oligo_ry[:-1]
+                        + nucleotide_to_purine_pyrimidine[previous_oligo_ry[-1]],
+                        tmp_oligo_ry,
+                        len(tmp_oligo_ry),
                     )
-                    if oligo_ws_overlap == oligo_ry_overlap:
+                    # print(oligo_ws_overlap, oligo_ry_overlap, idx_to_insert)
+                    if oligo_ws_overlap != 0 and oligo_ws_overlap == oligo_ry_overlap:
                         new_ws = copy.deepcopy(ws)
                         new_ry = copy.deepcopy(ry)
                         new_ws.path.insert(idx_to_insert, tmp_oligo_ws)
@@ -85,13 +95,15 @@ class Tabu:
     def generate_neighbours(self, ws: WSRY, ry: WSRY) -> tuple[tuple[WSRY, WSRY], ...]:
         """Generate neighbours for current solution."""
         neighbours: list[tuple[WSRY, WSRY]] = []
+        ws_paths_set = {str(ws.path)}  # terrible solution, but it works
         for _ in range(self.number_of_neighbours):
             # chosen_move = random.choice(list(Moves))
             chosen_move = Moves.INSERT_OLIGO
             match chosen_move:
                 case Moves.INSERT_OLIGO:
                     neighbour = self.generate_neighbour_insert_oligo(ws, ry)
-                    if neighbour:
+                    if neighbour and str(neighbour[0].path) not in ws_paths_set:
+                        ws_paths_set.add(str(neighbour[0].path))
                         neighbours.append(neighbour)
                 case Moves.DELETE_OLIGO:
                     pass
