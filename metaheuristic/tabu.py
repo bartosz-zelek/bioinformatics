@@ -52,6 +52,7 @@ class Tabu:
         """Generate neighbours for current solution by inserting oligo."""
 
         # ws i ry muszą mieć ten sam ostatni nukleotyd oraz mieć identyczny overlap z oligo przed miejscem wstawienia
+        # those lists can be generated before before calling this function
         not_used_not_tabu_oligos_ws = [
             oligo for oligo in ws.not_used_oligos() if not self.is_tabu(oligo)
         ]
@@ -60,7 +61,19 @@ class Tabu:
         ]
 
         # find index where to insert (take care of clusters). skip 0 index
-        idx_to_insert = random.randint(1, len(ws.path))
+        biggest_possible_overlap = len(ws.start_converted) - 1
+        while True:
+            idx_to_insert = random.randint(
+                1, len(ws.path)
+            )  # randint or incrementing index?
+            if (
+                idx_to_insert != len(ws.path)
+                and ws.depth[idx_to_insert - 1] == biggest_possible_overlap
+                and ws.depth[idx_to_insert] == biggest_possible_overlap
+            ):
+                continue
+            break
+
         previous_oligo_ws = ws.path[idx_to_insert - 1]
         previous_oligo_ry = ry.path[idx_to_insert - 1]
 
@@ -70,7 +83,9 @@ class Tabu:
                 if tmp_oligo_ws[-1] == tmp_oligo_ry[-1]:
                     oligo_ws_overlap = check_overlap(
                         previous_oligo_ws[:-1]
-                        + nucleotide_to_weak_strong[previous_oligo_ws[-1]],
+                        + nucleotide_to_weak_strong[
+                            previous_oligo_ws[-1]
+                        ],  # temporary convert last nucleotide
                         tmp_oligo_ws,
                         len(tmp_oligo_ws),
                     )
