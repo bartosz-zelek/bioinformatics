@@ -47,18 +47,15 @@ class Tabu:
         return (move in self.tabu_list_ws) or (move in self.tabu_list_ry)
 
     def generate_neighbour_insert_oligo(
-        self, ws: WSRY, ry: WSRY
+        self,
+        ws: WSRY,
+        ry: WSRY,
+        not_used_not_tabu_oligos_ws,
+        not_used_not_tabu_oligos_ry,
     ) -> tuple[WSRY, WSRY] | tuple[()]:
         """Generate neighbours for current solution by inserting oligo."""
 
         # ws i ry muszą mieć ten sam ostatni nukleotyd oraz mieć identyczny overlap z oligo przed miejscem wstawienia
-        # those lists can be generated before before calling this function
-        not_used_not_tabu_oligos_ws = [
-            oligo for oligo in ws.not_used_oligos() if not self.is_tabu(oligo)
-        ]
-        not_used_not_tabu_oligos_ry = [
-            oligo for oligo in ry.not_used_oligos() if not self.is_tabu(oligo)
-        ]
 
         # find index where to insert (take care of clusters). skip 0 index
         biggest_possible_overlap = len(ws.start_converted) - 1
@@ -111,12 +108,21 @@ class Tabu:
         """Generate neighbours for current solution."""
         neighbours: list[tuple[WSRY, WSRY]] = []
         ws_paths_set = {str(ws.path)}  # terrible solution, but it works
+        not_used_not_tabu_oligos_ws = [
+            oligo for oligo in ws.not_used_oligos() if not self.is_tabu(oligo)
+        ]
+        not_used_not_tabu_oligos_ry = [
+            oligo for oligo in ry.not_used_oligos() if not self.is_tabu(oligo)
+        ]
+
         for _ in range(self.number_of_neighbours):
             # chosen_move = random.choice(list(Moves))
             chosen_move = Moves.INSERT_OLIGO
             match chosen_move:
                 case Moves.INSERT_OLIGO:
-                    neighbour = self.generate_neighbour_insert_oligo(ws, ry)
+                    neighbour = self.generate_neighbour_insert_oligo(
+                        ws, ry, not_used_not_tabu_oligos_ws, not_used_not_tabu_oligos_ry
+                    )
                     if neighbour and str(neighbour[0].path) not in ws_paths_set:
                         ws_paths_set.add(str(neighbour[0].path))
                         neighbours.append(neighbour)
