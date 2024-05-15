@@ -13,13 +13,13 @@ from common import (
 
 def main() -> None:
     """Main function of the program."""
-    r: ReconstructionData = fetch_test_data()
+    r: ReconstructionData = fetch_test_data(sqne=4)
     ws: WSRY = WSRY(nucleotide_to_weak_strong, r.start, r.ws_probe.cells)
     ry: WSRY = WSRY(nucleotide_to_purine_pyrimidine, r.start, r.ry_probe.cells)
     t1 = Tabu(10, 100, 10)
-    t2 = Tabu(10, 100, 10)
-    print(ws.not_used_oligos())
-    print(greedy(ws, ry, r))
+    # print(ws.not_used_oligos())
+    # print(greedy(ws, ry, r))
+    t1.find_solution(ws, ry, r, greedy(ws, ry, r))
 
 
 if __name__ == "__main__":

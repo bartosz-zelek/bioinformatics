@@ -52,9 +52,9 @@ class WSRY:
         """Return length of the current solution."""
         return sum([len(self.path[0]) - depth for depth in self.depth])
 
-    def not_used_oligos(self) -> tuple[str, ...]:
+    def not_used_oligos(self) -> list[str]:
         """Return oligos that are not used in the solution."""
-        return tuple([oligo for oligo in self.cells_dict if not self.cells_dict[oligo]])
+        return [oligo for oligo in self.cells_dict if not self.cells_dict[oligo]]
 
     def __repr__(self) -> str:
         return f"Start: {self.start_converted} Path: {self.path} Depth: {self.depth}"
