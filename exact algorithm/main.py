@@ -133,6 +133,7 @@ def add_ongoing_vertices_to_list(
         + nucleotide_to_purine_pyrimidine[last_added_path_ws[-1]]
     )
 
+    # TODO: [1]    109574 segmentation fault (core dumped)  python3 main.py - sometimes segmentation fault
     for vertex_ws in ws.cells_dict:  # for (VertexW S ← OverlapSet) do
         if not ws.cells_dict[vertex_ws]:
             for vertex_ry in ry.cells_dict:  # for (VertexRY ← OverlapSet) do
@@ -240,7 +241,7 @@ def reconstruct(
 
 def main() -> None:
     """Main function of the program."""
-    r: ReconstructionData = fetch_test_data(sqne=4)
+    r: ReconstructionData = fetch_test_data(n=100, k=10, sqne=10)
     ws: WSRY = WSRY(nucleotide_to_weak_strong, r.start, r.ws_probe.cells)
     ry: WSRY = WSRY(nucleotide_to_purine_pyrimidine, r.start, r.ry_probe.cells)
     solutions: list[tuple[WSRY, WSRY, int]] = list()
@@ -252,8 +253,10 @@ def main() -> None:
     ):
         connected = WSRY.connect_ws_ry(ws_oligo, ry_oligo)
         reconstructed_dna += connected[depth - len(ws_oligo) :]
-    print(reconstructed_dna, end=" ")
-    print(len(reconstructed_dna))
+        print(f"Dane wejściowe: {r}")
+        print(f"Rozwiązanie: {best_solution}")
+        print(f"Rekonstrukcja: {reconstructed_dna}", end=" ")
+        print(len(reconstructed_dna))
 
 
 main()

@@ -9,7 +9,7 @@ class Probe:
         self.cells = json_xml["cell"]  # sx - s1, s2
 
     def __repr__(self):
-        return f"Pattern: {self.pattern}, Cells: {self.cells[:3]}"
+        return f"Pattern: {self.pattern}, Cells: {self.cells}"
 
     # pattern: str = None
     # cells: list[str] = None  # sx - s1, s2
@@ -29,7 +29,7 @@ class ReconstructionData:
         self.ry_probe = Probe(json["dna"]["probe"][1])
 
     def __repr__(self):
-        return f"Length: {self.length}, Start: {self.start}, Probes:[ {self.ws_probe}, {self.ry_probe} ]"
+        return f"Length: {self.length}, Start: {self.start}, Probes:[ {self.ws_probe},\n\t {self.ry_probe} ]"
 
     # length: int = None
     # start: str = None

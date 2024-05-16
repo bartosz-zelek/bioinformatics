@@ -145,6 +145,12 @@ class Tabu:
             return (ws, ry)
         return ()
 
+    def generate_neighbour_shift_oligo(
+        self, ws: WSRY, ry: WSRY
+    ) -> tuple[WSRY, WSRY] | tuple[()]:
+        """Generate neighbours for current solution by shifting oligo."""
+        return ()
+
     def generate_neighbours(self, ws: WSRY, ry: WSRY) -> tuple[tuple[WSRY, WSRY], ...]:
         """Generate neighbours for current solution."""
         neighbours: list[tuple[WSRY, WSRY]] = []
