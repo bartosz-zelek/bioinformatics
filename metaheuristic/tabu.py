@@ -27,6 +27,19 @@ class Moves(Enum):
 class Tabu:
     """Class for tabu search metaheuristic."""
 
+    @staticmethod
+    def is_in_cluster(ws: WSRY, idx: int) -> bool:  # VERIFY!
+        """Check if oligo at idx is in cluster."""
+        biggest_possible_overlap = len(ws.start_converted) - 1
+
+        if (
+            idx != len(ws.path) - 1
+            and ws.depth[idx - 1] == biggest_possible_overlap
+            and ws.depth[idx] == biggest_possible_overlap
+        ):
+            return True
+        return False
+
     def __init__(self, tabu_size, number_of_iterations, number_of_neighbours):
         self.tabu_size = tabu_size
         self.tabu_list_ws = []
@@ -42,9 +55,18 @@ class Tabu:
             self.tabu_list_ws.pop(0)
             self.tabu_list_ry.pop(0)
 
-    def is_tabu(self, move):
+    def is_tabu(self, move):  # VERIFY!
         """Check if move is in tabu list."""
         return (move in self.tabu_list_ws) or (move in self.tabu_list_ry)
+
+    def choose_position_outside_cluster(self, ws: WSRY) -> Optional[int]:
+        """Choose random position (not index) outside cluster. <1, len(ws.depth)>. Last position of path is never a cluster."""
+        while True:
+            pos = random.randint(1, len(ws.path))  # randint or incrementing index?
+            if Tabu.is_in_cluster(ws, pos):
+                continue
+            break
+        return pos
 
     def generate_neighbour_insert_oligo(
         self,
@@ -58,50 +80,70 @@ class Tabu:
         # ws i ry muszą mieć ten sam ostatni nukleotyd oraz mieć identyczny overlap z oligo przed miejscem wstawienia
 
         # find index where to insert (take care of clusters). skip 0 index
-        biggest_possible_overlap = len(ws.start_converted) - 1
-        while True:
-            idx_to_insert = random.randint(
-                1, len(ws.path)
-            )  # randint or incrementing index?
-            if (
-                idx_to_insert != len(ws.path)
-                and ws.depth[idx_to_insert - 1] == biggest_possible_overlap
-                and ws.depth[idx_to_insert] == biggest_possible_overlap
-            ):
-                continue
-            break
+        idx_to_insert = self.choose_position_outside_cluster(ws)
 
-        previous_oligo_ws = ws.path[idx_to_insert - 1]
-        previous_oligo_ry = ry.path[idx_to_insert - 1]
+        if idx_to_insert is not None:
+            previous_oligo_ws = ws.path[idx_to_insert - 1]
+            previous_oligo_ry = ry.path[idx_to_insert - 1]
 
-        random.shuffle(not_used_not_tabu_oligos_ws)
-        for tmp_oligo_ws in not_used_not_tabu_oligos_ws:
-            for tmp_oligo_ry in not_used_not_tabu_oligos_ry:
-                if tmp_oligo_ws[-1] == tmp_oligo_ry[-1]:
-                    oligo_ws_overlap = check_overlap(
-                        previous_oligo_ws[:-1]
-                        + nucleotide_to_weak_strong[
-                            previous_oligo_ws[-1]
-                        ],  # temporary convert last nucleotide
-                        tmp_oligo_ws,
-                        len(tmp_oligo_ws),
-                    )
-                    oligo_ry_overlap = check_overlap(
-                        previous_oligo_ry[:-1]
-                        + nucleotide_to_purine_pyrimidine[previous_oligo_ry[-1]],
-                        tmp_oligo_ry,
-                        len(tmp_oligo_ry),
-                    )
-                    # print(oligo_ws_overlap, oligo_ry_overlap, idx_to_insert)
-                    if oligo_ws_overlap != 0 and oligo_ws_overlap == oligo_ry_overlap:
-                        new_ws = copy.deepcopy(ws)
-                        new_ry = copy.deepcopy(ry)
-                        new_ws.path.insert(idx_to_insert, tmp_oligo_ws)
-                        new_ry.path.insert(idx_to_insert, tmp_oligo_ry)
-                        new_ws.depth.insert(idx_to_insert, oligo_ws_overlap)
-                        new_ry.depth.insert(idx_to_insert, oligo_ry_overlap)
-                        return (new_ws, new_ry)
+            random.shuffle(not_used_not_tabu_oligos_ws)
+            for tmp_oligo_ws in not_used_not_tabu_oligos_ws:
+                for tmp_oligo_ry in not_used_not_tabu_oligos_ry:
+                    if tmp_oligo_ws[-1] == tmp_oligo_ry[-1]:
+                        oligo_ws_overlap = check_overlap(
+                            previous_oligo_ws[:-1]
+                            + nucleotide_to_weak_strong[
+                                previous_oligo_ws[-1]
+                            ],  # temporary convert last nucleotide
+                            tmp_oligo_ws,
+                            len(tmp_oligo_ws),
+                        )
+                        oligo_ry_overlap = check_overlap(
+                            previous_oligo_ry[:-1]
+                            + nucleotide_to_purine_pyrimidine[previous_oligo_ry[-1]],
+                            tmp_oligo_ry,
+                            len(tmp_oligo_ry),
+                        )
+                        # print(oligo_ws_overlap, oligo_ry_overlap, idx_to_insert)
+                        if (
+                            oligo_ws_overlap != 0
+                            and oligo_ws_overlap == oligo_ry_overlap
+                        ):
+                            new_ws = copy.deepcopy(ws)
+                            new_ry = copy.deepcopy(ry)
+                            new_ws.path.insert(idx_to_insert, tmp_oligo_ws)
+                            new_ry.path.insert(idx_to_insert, tmp_oligo_ry)
+                            new_ws.depth.insert(idx_to_insert, oligo_ws_overlap)
+                            new_ry.depth.insert(idx_to_insert, oligo_ry_overlap)
+                            return (new_ws, new_ry)
 
+        return ()
+
+    def generate_neighbour_delete_oligo(
+        self,
+        ws: WSRY,
+        ry: WSRY,
+        not_used_not_tabu_oligos_ws,
+        not_used_not_tabu_oligos_ry,
+    ) -> tuple[WSRY, WSRY] | tuple[()]:  # VERIFY!
+        """Generate neighbours for current solution by deleting oligo."""
+        random_delete_idx = self.choose_position_outside_cluster(ws)
+        if random_delete_idx is not None:
+            random_delete_idx = (
+                random_delete_idx
+                if random_delete_idx != len(ws.path)
+                else len(ws.path) - 1
+            )
+            if not self.is_tabu(ws.path[random_delete_idx]):
+
+                ws = copy.deepcopy(ws)
+                ry = copy.deepcopy(ry)
+                ws.path.pop(random_delete_idx)
+                ry.path.pop(random_delete_idx)
+                ws.depth.pop(random_delete_idx)
+                ry.depth.pop(random_delete_idx)
+
+                return (ws, ry)
         return ()
 
     def generate_neighbours(self, ws: WSRY, ry: WSRY) -> tuple[tuple[WSRY, WSRY], ...]:
@@ -117,23 +159,28 @@ class Tabu:
 
         for _ in range(self.number_of_neighbours):
             # chosen_move = random.choice(list(Moves))
-            chosen_move = Moves.INSERT_OLIGO
+            # chosen_move = Moves.INSERT_OLIGO
+            chosen_move = Moves.DELETE_OLIGO
             match chosen_move:
                 case Moves.INSERT_OLIGO:
                     neighbour = self.generate_neighbour_insert_oligo(
                         ws, ry, not_used_not_tabu_oligos_ws, not_used_not_tabu_oligos_ry
                     )
-                    if neighbour and str(neighbour[0].path) not in ws_paths_set:
-                        ws_paths_set.add(str(neighbour[0].path))
-                        neighbours.append(neighbour)
                 case Moves.DELETE_OLIGO:
-                    pass
+                    neighbour = self.generate_neighbour_delete_oligo(
+                        ws, ry, not_used_not_tabu_oligos_ws, not_used_not_tabu_oligos_ry
+                    )
                 case Moves.DELETE_CLUSTER:
                     pass
                 case Moves.SHIFT_OLIGO:
                     pass
                 case Moves.SHIFT_CLUSTER:
                     pass
+
+            if neighbour and str(neighbour[0].path) not in ws_paths_set:
+                ws_paths_set.add(str(neighbour[0].path))
+                neighbours.append(neighbour)
+
         return tuple(neighbours)
 
     def find_solution(
