@@ -1,5 +1,7 @@
 """WSRY class to store data for WS or RY cells and provide methods to work with them."""
 
+from common import check_overlap
+
 
 class WSRY:
     """Store data for WS or RY cells and provide methods to work with them."""
@@ -38,6 +40,18 @@ class WSRY:
 
         self.path = [self.start_converted]
         self.depth = [0]
+
+    def update_depth(self) -> None:
+        """Update depth of the current solution."""
+        self.depth = [0]
+        for i in range(1, len(self.path)):
+            self.depth.append(
+                check_overlap(
+                    self.path[i - 1][:-1] + self.dict_convertion[self.path[i - 1][-1]],
+                    self.path[i],
+                    len(self.start_converted),
+                )
+            )
 
     def convert_oligo(self, oligo: str) -> str:
         """convert oligo to WS or RY according to the given dictionary without last nucleotide"""
