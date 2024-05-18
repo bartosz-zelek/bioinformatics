@@ -59,13 +59,12 @@ class Tabu:
         """
 
         ### INDEX OUTSIDE CLUSTER - BEGIN
-        biggest_possible_overlap = len(ws.start_converted) - 1
         possible_idxs = []
         for idx in range(1, len(ws.path) + 1):
             if (
                 idx != len(ws.path)
-                and ws.depth[idx - 1] == biggest_possible_overlap
-                and ws.depth[idx] == biggest_possible_overlap
+                and ws.depth[idx - 1] == ws.perfect_overlap
+                and ws.depth[idx] == ws.perfect_overlap
             ):
                 continue
             possible_idxs.append(idx)
@@ -100,15 +99,14 @@ class Tabu:
         """Generate neighbours for current solution by deleting oligo."""
 
         ### INDEX OUTSIDE CLUSTER - BEGIN
-        biggest_possible_overlap = len(ws.start_converted) - 1
         while True:
             random_delete_idx = random.randint(
                 1, len(ws.path) - 1
             )  # randint or incrementing index?
             if (
                 random_delete_idx != len(ws.path) - 1
-                and ws.depth[random_delete_idx] == biggest_possible_overlap
-                and ws.depth[random_delete_idx + 1] == biggest_possible_overlap
+                and ws.depth[random_delete_idx] == ws.perfect_overlap
+                and ws.depth[random_delete_idx + 1] == ws.perfect_overlap
             ):
                 continue
             break
@@ -131,15 +129,14 @@ class Tabu:
     ) -> tuple[WSRY, WSRY] | tuple[()]:
         """Generate neighbours for current solution by shifting oligo."""
         ### INDEX OUTSIDE CLUSTER - BEGIN - choose random oligo to shift
-        biggest_possible_overlap = len(ws.start_converted) - 1
         while True:
             random_oligo_idx = random.randint(
                 1, len(ws.path) - 1
             )  # randint or incrementing index?
             if (
                 random_oligo_idx != len(ws.path) - 1
-                and ws.depth[random_oligo_idx] == biggest_possible_overlap
-                and ws.depth[random_oligo_idx + 1] == biggest_possible_overlap
+                and ws.depth[random_oligo_idx] == ws.perfect_overlap
+                and ws.depth[random_oligo_idx + 1] == ws.perfect_overlap
             ):
                 continue
             break
@@ -159,8 +156,8 @@ class Tabu:
             for idx_to_insert in range(1, len(ws.path) + 1):
                 if (
                     idx_to_insert != len(ws.path)
-                    and ws.depth[idx_to_insert - 1] == biggest_possible_overlap
-                    and ws.depth[idx_to_insert] == biggest_possible_overlap
+                    and ws.depth[idx_to_insert - 1] == ws.perfect_overlap
+                    and ws.depth[idx_to_insert] == ws.perfect_overlap
                 ):
                     continue
                 idxs.append(idx_to_insert)
@@ -171,10 +168,46 @@ class Tabu:
                 ry.path.insert(i, oligo_ry)
                 ws.update_depth()
                 ry.update_depth()
-                if ws.depth == ry.depth and 0 not in ws.depth[1:]:
+                # if ws.depth == ry.depth and 0 not in ws.depth[1:]: # do we allow 0 in depth?
+                if ws.depth == ry.depth:
                     return (ws, ry)
                 ws.path.pop(i)
                 ry.path.pop(i)
+        return ()
+
+    def generate_neigbour_delete_cluster(
+        self, ws: WSRY, ry: WSRY
+    ) -> tuple[WSRY, WSRY] | tuple[()]:
+        """Generate neighbours for current solution by deleting cluster."""
+        # find indexes of first elements of clusters
+        ws = copy.deepcopy(ws)
+        ry = copy.deepcopy(ry)
+
+        begin_of_cluster = False
+        cluster_indexes = []
+        for i in range(1, len(ws.path) - 1):
+            if ws.depth[i] == ws.perfect_overlap:
+                if begin_of_cluster is False and ws.depth[i + 1] == ws.perfect_overlap:
+                    cluster_indexes.append(i)
+                    begin_of_cluster = True
+            else:
+                begin_of_cluster = False
+
+        if cluster_indexes:
+            random_cluster_idx = random.choice(cluster_indexes)
+            while (
+                random_cluster_idx < len(ws.path)
+                and ws.depth[random_cluster_idx] == ws.perfect_overlap
+            ):
+                ws.path.pop(random_cluster_idx)
+                ry.path.pop(random_cluster_idx)
+                ws.depth.pop(random_cluster_idx)
+                ry.depth.pop(random_cluster_idx)
+
+            ws.update_depth()
+            ry.update_depth()
+            return (ws, ry)
+
         return ()
 
     def generate_neighbours(self, ws: WSRY, ry: WSRY) -> tuple[tuple[WSRY, WSRY], ...]:
@@ -192,7 +225,8 @@ class Tabu:
             # chosen_move = random.choice(list(Moves))
             # chosen_move = Moves.INSERT_OLIGO
             # chosen_move = Moves.DELETE_OLIGO
-            chosen_move = Moves.SHIFT_OLIGO
+            # chosen_move = Moves.SHIFT_OLIGO
+            chosen_move = Moves.DELETE_CLUSTER
             match chosen_move:
                 case Moves.INSERT_OLIGO:
                     neighbour = self.generate_neighbour_insert_oligo(
@@ -201,7 +235,7 @@ class Tabu:
                 case Moves.DELETE_OLIGO:
                     neighbour = self.generate_neighbour_delete_oligo(ws, ry)
                 case Moves.DELETE_CLUSTER:
-                    pass
+                    neighbour = self.generate_neigbour_delete_cluster(ws, ry)
                 case Moves.SHIFT_OLIGO:
                     neighbour = self.generate_neighbour_shift_oligo(ws, ry)
                 case Moves.SHIFT_CLUSTER:

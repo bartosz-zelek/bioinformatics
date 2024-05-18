@@ -40,6 +40,7 @@ class WSRY:
 
         self.path = [self.start_converted]
         self.depth = [0]
+        self.perfect_overlap = len(self.start_converted) - 1
 
     def update_depth(self) -> None:
         """Update depth of the current solution."""
