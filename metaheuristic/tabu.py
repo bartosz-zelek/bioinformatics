@@ -27,6 +27,17 @@ class Moves(Enum):
 class Tabu:
     """Class for tabu search metaheuristic."""
 
+    @staticmethod
+    def reconstruct_dna(ws: WSRY, ry: WSRY) -> str:
+        """
+        Reconstruct DNA from WS and RY paths.
+        """
+        reconstructed_dna = ""
+        for ws_oligo, ry_oligo, depth in zip(ws.path, ry.path, ws.depth):
+            connected = WSRY.connect_ws_ry(ws_oligo, ry_oligo)
+            reconstructed_dna += connected[depth - len(ws_oligo) :]
+        return reconstructed_dna
+
     def __init__(self, tabu_size, number_of_iterations, number_of_neighbours):
         self.tabu_size = tabu_size
         self.tabu_list_ws = []
@@ -121,7 +132,8 @@ class Tabu:
             ws.update_depth()
             ry.update_depth()
 
-            return (ws, ry)
+            if ws.depth == ry.depth:
+                return (ws, ry)
         return ()
 
     def generate_neighbour_shift_oligo(
@@ -206,8 +218,53 @@ class Tabu:
 
             ws.update_depth()
             ry.update_depth()
-            return (ws, ry)
+            if ws.depth == ry.depth:
+                return (ws, ry)
 
+        return ()
+
+    def generate_neighbour_shift_cluster(
+        self, ws: WSRY, ry: WSRY
+    ) -> tuple[WSRY, WSRY] | tuple[()]:
+        """Generate neighbours for current solution by shifting cluster."""
+        ws = copy.deepcopy(ws)
+        ry = copy.deepcopy(ry)
+        begin_of_cluster = False
+        cluster_indexes = []
+        for i in range(1, len(ws.path) - 1):
+            if ws.depth[i] == ws.perfect_overlap:
+                if begin_of_cluster is False and ws.depth[i + 1] == ws.perfect_overlap:
+                    cluster_indexes.append(i)
+                    begin_of_cluster = True
+            else:
+                begin_of_cluster = False
+
+        cluster_to_shift_ws = []
+        cluster_to_shift_ry = []
+
+        if cluster_indexes:
+            random_cluster_idx = random.choice(cluster_indexes)
+            while (
+                random_cluster_idx < len(ws.path)
+                and ws.depth[random_cluster_idx] == ws.perfect_overlap
+            ):
+                cluster_to_shift_ws.append(ws.path.pop(random_cluster_idx))
+                cluster_to_shift_ry.append(ry.path.pop(random_cluster_idx))
+                ws.depth.pop(random_cluster_idx)
+                ry.depth.pop(random_cluster_idx)
+
+            while True:
+                random_idx_to_insert = random.randint(1, len(ws.path))
+                if random_idx_to_insert != random_cluster_idx:
+                    break
+            for i in range(len(cluster_to_shift_ws) - 1, -1, -1):
+                ws.path.insert(random_idx_to_insert, cluster_to_shift_ws[i])
+                ry.path.insert(random_idx_to_insert, cluster_to_shift_ry[i])
+
+            ws.update_depth()
+            ry.update_depth()
+            if ws.depth == ry.depth:
+                return (ws, ry)
         return ()
 
     def generate_neighbours(self, ws: WSRY, ry: WSRY) -> tuple[tuple[WSRY, WSRY], ...]:
@@ -226,7 +283,8 @@ class Tabu:
             # chosen_move = Moves.INSERT_OLIGO
             # chosen_move = Moves.DELETE_OLIGO
             # chosen_move = Moves.SHIFT_OLIGO
-            chosen_move = Moves.DELETE_CLUSTER
+            # chosen_move = Moves.DELETE_CLUSTER
+            chosen_move = Moves.SHIFT_CLUSTER
             match chosen_move:
                 case Moves.INSERT_OLIGO:
                     neighbour = self.generate_neighbour_insert_oligo(
@@ -235,11 +293,17 @@ class Tabu:
                 case Moves.DELETE_OLIGO:
                     neighbour = self.generate_neighbour_delete_oligo(ws, ry)
                 case Moves.DELETE_CLUSTER:
-                    neighbour = self.generate_neigbour_delete_cluster(ws, ry)
+                    neighbour = self.generate_neigbour_delete_cluster(
+                        ws, ry
+                    )  # TODO: ws.depth != ry.depth
                 case Moves.SHIFT_OLIGO:
-                    neighbour = self.generate_neighbour_shift_oligo(ws, ry)
+                    neighbour = self.generate_neighbour_shift_oligo(
+                        ws, ry
+                    )  # TODO: seems ok
                 case Moves.SHIFT_CLUSTER:
-                    pass
+                    neighbour = self.generate_neighbour_shift_cluster(
+                        ws, ry
+                    )  # TODO: ws.depth != ry.depth
 
             if neighbour and str(neighbour[0].path) not in ws_paths_set:
                 ws_paths_set.add(str(neighbour[0].path))
@@ -259,8 +323,17 @@ class Tabu:
         ws, ry - WSRY objects with initial paths
         """
         best_solution = greedy_solution
-        # best_solution = (ws, ry)
         print(best_solution)
+        reconstructed_dna = Tabu.reconstruct_dna(best_solution[0], best_solution[1])
+        print(reconstructed_dna, len(reconstructed_dna), f"max: {r.length}")
         neighbours = self.generate_neighbours(best_solution[0], best_solution[1])
         for neighbour in neighbours:
             print(neighbour[0], neighbour[1])
+            if neighbour[0].depth != neighbour[1].depth:
+                print("ERROR - skipped neighbour with different depth")
+                continue
+            reconstructed_dna = Tabu.reconstruct_dna(neighbour[0], neighbour[1])
+            print(reconstructed_dna, len(reconstructed_dna), f"max: {r.length}")
+            if len(reconstructed_dna) > r.length:
+                print("ERROR - skipped neighbour with too long dna")
+                continue
