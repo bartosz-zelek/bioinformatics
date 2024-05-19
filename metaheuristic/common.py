@@ -37,7 +37,7 @@ def fetch_test_data(
     if not content:
         raise requests.exceptions.RequestException("Failed to fetch test data")
     data = xmltodict.parse(content)
-    return ReconstructionData(data)
+    return ReconstructionData(data, sqne)
 
 
 def check_overlap(oligo1: str, oligo2: str, probe: int) -> int:

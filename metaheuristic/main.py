@@ -13,10 +13,10 @@ from common import (
 
 def main() -> None:
     """Main function of the program."""
-    r: ReconstructionData = fetch_test_data(sqne=4)
+    r: ReconstructionData = fetch_test_data(n=100, k=8, sqne=13)
     ws: WSRY = WSRY(nucleotide_to_weak_strong, r.start, r.ws_probe.cells)
     ry: WSRY = WSRY(nucleotide_to_purine_pyrimidine, r.start, r.ry_probe.cells)
-    t1 = Tabu(3, 100, 100)
+    t1 = Tabu(4, 100, 100)
     # print(ws.not_used_oligos())
     # print(greedy(ws, ry, r))
     t1.find_solution(ws, ry, r, greedy(ws, ry, r))

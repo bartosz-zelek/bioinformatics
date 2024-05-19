@@ -33,23 +33,34 @@ class Tabu:
             reconstructed_dna += connected[depth - len(ws_oligo) :]
         return reconstructed_dna
 
+    @staticmethod
+    def count_negative_errors(ws: WSRY) -> int:
+        """Count negative errors (not perfect overlaps) in the solution."""
+        cnt = 0
+        for el in ws.depth[1:]:
+            cnt += ws.perfect_overlap - el
+        return cnt
+
     def __init__(self, tabu_size, number_of_iterations, number_of_neighbours):
         self.tabu_size = tabu_size
         self.tabu_list_ws = []
         self.tabu_list_ry = []
         self.number_of_iterations = number_of_iterations
         self.number_of_neighbours = number_of_neighbours
+        self.ommit_tabu = False
 
     def add(self, move_ws, move_ry):
         """Add move to tabu list and remove oldest move if list is full."""
         self.tabu_list_ws.append(move_ws)
         self.tabu_list_ry.append(move_ry)
-        if len(self.tabu_list_ws) > self.tabu_size:
-            self.tabu_list_ws.pop(0)
-            self.tabu_list_ry.pop(0)
+        # if len(self.tabu_list_ws) > self.tabu_size:
+        #     self.tabu_list_ws.pop(0)
+        #     self.tabu_list_ry.pop(0)
 
     def is_tabu(self, move):
         """Check if move is in tabu list."""
+        if self.ommit_tabu:
+            return False
         return (move in self.tabu_list_ws) or (move in self.tabu_list_ry)
 
     def generate_neighbour_insert_oligo(
@@ -338,7 +349,6 @@ class Tabu:
                         not_used_not_tabu_oligos_ws,
                         not_used_not_tabu_oligos_ry,
                     )  # seems ok
-                    # neighbour = None
                 case Moves.DELETE_OLIGO:
                     # print("DELETE_OLIGO")
                     neighbour = self.generate_neighbour_delete_oligo(
@@ -386,6 +396,9 @@ class Tabu:
         best_solution: tuple[WSRY, WSRY] | tuple[WSRY, WSRY, str] = copy.deepcopy(
             greedy_solution
         )
+        solution_to_return: Optional[tuple[WSRY, WSRY, int, int]] = (
+            None  # ws ry errors solution_length
+        )
 
         print(best_solution)
         reconstructed_dna = Tabu.reconstruct_dna(best_solution[0], best_solution[1])
@@ -397,12 +410,7 @@ class Tabu:
 
             neighbours = self.generate_neighbours(best_solution[0], best_solution[1], r)
             for neighbour in neighbours:
-                reconstructed_dna = Tabu.reconstruct_dna(neighbour[0], neighbour[1])
-                if len(reconstructed_dna) > r.length:
-                    print("ERROR - skipped neighbour with too long dna")
-                    continue
-
-                if i % 2:
+                if random.randint(0, 1000) % 2:
                     grade = self.global_grade(neighbour[0], neighbour[1])
                 else:
                     grade = self.condensation_grade(neighbour[0], neighbour[1])
@@ -411,12 +419,27 @@ class Tabu:
                     max_grade_neighbour = (grade, neighbour)
 
             if max_grade_neighbour:
-                print(neighbour[0], neighbour[1])
+                reconstructed_dna = Tabu.reconstruct_dna(
+                    max_grade_neighbour[1][0], max_grade_neighbour[1][1]
+                )
+                print(max_grade_neighbour[1][:2])
                 print(reconstructed_dna, len(reconstructed_dna), f"max: {r.length}")
+                print(self.count_negative_errors(max_grade_neighbour[1][0]))
+                if (
+                    len(reconstructed_dna) == r.length
+                    and self.count_negative_errors(max_grade_neighbour[1][0]) == r.sqne
+                ):
+                    print("Found solution")
+                    return
 
                 best_solution = max_grade_neighbour[1]
                 if len(best_solution) == 4:
                     self.add(best_solution[2], best_solution[3])
+                if self.ommit_tabu:
+                    self.ommit_tabu = False
+            else:
+                print("No better solution found")
+                self.ommit_tabu = True
             if len(self.tabu_list_ws) > self.tabu_size:
                 self.tabu_list_ws.pop(0)
                 self.tabu_list_ry.pop(0)
