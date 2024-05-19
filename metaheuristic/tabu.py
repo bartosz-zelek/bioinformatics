@@ -397,13 +397,13 @@ class Tabu:
             greedy_solution
         )
         solution_to_return: Optional[tuple[WSRY, WSRY, int, int]] = (
-            None  # ws ry errors solution_length
+            None  # ws ry abs(errors) solution_length
         )
 
         print(best_solution)
         reconstructed_dna = Tabu.reconstruct_dna(best_solution[0], best_solution[1])
         print(reconstructed_dna, len(reconstructed_dna), f"max: {r.length}")
-        for i in range(self.number_of_iterations):
+        for _ in range(self.number_of_iterations):
             max_grade_neighbour: Optional[
                 tuple[int, tuple[WSRY, WSRY] | tuple[WSRY, WSRY, str, str]]
             ] = None
@@ -429,8 +429,29 @@ class Tabu:
                     len(reconstructed_dna) == r.length
                     and self.count_negative_errors(max_grade_neighbour[1][0]) == r.sqne
                 ):
-                    print("Found solution")
-                    return
+                    print("Found perfect solution")
+                    return (max_grade_neighbour[1][0], max_grade_neighbour[1][1])
+
+                if solution_to_return is None or (
+                    len(reconstructed_dna) > solution_to_return[3]
+                    or (
+                        len(reconstructed_dna) >= solution_to_return[3]
+                        and abs(
+                            self.count_negative_errors(max_grade_neighbour[1][0])
+                            - r.sqne
+                        )
+                        < solution_to_return[2]
+                    )
+                ):
+                    solution_to_return = (
+                        max_grade_neighbour[1][0],
+                        max_grade_neighbour[1][1],
+                        abs(
+                            self.count_negative_errors(max_grade_neighbour[1][0])
+                            - r.sqne
+                        ),
+                        len(reconstructed_dna),
+                    )
 
                 best_solution = max_grade_neighbour[1]
                 if len(best_solution) == 4:
@@ -444,3 +465,4 @@ class Tabu:
                 self.tabu_list_ws.pop(0)
                 self.tabu_list_ry.pop(0)
                 # add move to tabu list
+        return (solution_to_return[0], solution_to_return[1])
