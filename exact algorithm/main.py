@@ -118,7 +118,7 @@ def add_ongoing_vertices_to_list(
     ws: WSRY, ry: WSRY
 ) -> tuple[tuple[str, str, int], ...]:
     """Add not used vertices to the list of candidates(ws,ry,overlap). Return sorted by overlap tuple of candidates."""
-    ws = copy.deepcopy(ws)
+    ws = copy.deepcopy(ws)  # deepcopy probably not needed
     ry = copy.deepcopy(ry)
 
     candidates: list[tuple[str, str, int]] = list()
@@ -134,6 +134,8 @@ def add_ongoing_vertices_to_list(
     )
 
     # TODO: [1]    109574 segmentation fault (core dumped)  python3 main.py - sometimes segmentation fault
+    # probably because of too many recursive calls
+    # is there a problem when one oligo is added and removed over and over again?
     for vertex_ws in ws.cells_dict:  # for (VertexW S ← OverlapSet) do
         if not ws.cells_dict[vertex_ws]:
             for vertex_ry in ry.cells_dict:  # for (VertexRY ← OverlapSet) do

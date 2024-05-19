@@ -1,16 +1,10 @@
 """Tabu search metaheuristic implementation."""
 
 import copy
-import pprint
 import random
 from enum import Enum
 from typing import Optional
 from wsry import WSRY
-from common import (
-    check_overlap,
-    nucleotide_to_weak_strong,
-    nucleotide_to_purine_pyrimidine,
-)
 from reconstruction_data import ReconstructionData
 
 
@@ -24,6 +18,7 @@ class Moves(Enum):
     SHIFT_CLUSTER = 5
 
 
+# TODO: cluster list can be generated once at iteration
 class Tabu:
     """Class for tabu search metaheuristic."""
 
@@ -64,7 +59,7 @@ class Tabu:
         r: ReconstructionData,
         not_used_not_tabu_oligos_ws,
         not_used_not_tabu_oligos_ry,
-    ) -> tuple[WSRY, WSRY] | tuple[()]:
+    ) -> Optional[tuple[WSRY, WSRY, str, str]]:
         """
         Generate neighbours for current solution by inserting oligo.
         WS and RY must have the same last nucleotide and have the same overlap with the oligo before the insertion point.
@@ -102,9 +97,9 @@ class Tabu:
                             ):
                                 new_ws.cells_dict[tmp_oligo_ws] = True
                                 new_ry.cells_dict[tmp_oligo_ry] = True
-                                return (new_ws, new_ry)
+                                return (new_ws, new_ry, tmp_oligo_ws, tmp_oligo_ry)
 
-        return ()
+        return None
 
     def generate_neighbour_delete_oligo(
         self,
@@ -112,7 +107,7 @@ class Tabu:
         ry: WSRY,
         r: ReconstructionData,
         skip_tabu_check=False,
-    ) -> tuple[WSRY, WSRY] | tuple[()]:
+    ) -> Optional[tuple[WSRY, WSRY, str, str]]:
         """Generate neighbours for current solution by deleting oligo."""
 
         ### INDEX OUTSIDE CLUSTER - BEGIN
@@ -124,7 +119,7 @@ class Tabu:
                     ws.depth[idx] == ws.perfect_overlap
                     and ws.depth[idx + 1] == ws.perfect_overlap
                 )
-            ) or (self.is_tabu(ws.path[idx]) and skip_tabu_check):
+            ) or (self.is_tabu(ws.path[idx]) is True and skip_tabu_check is False):
                 continue
             possible_idxs.append(idx)
         ### INDEX OUTSIDE CLUSTER - END
@@ -143,13 +138,13 @@ class Tabu:
 
             if ws.depth == ry.depth and len(Tabu.reconstruct_dna(ws, ry)) <= r.length:
                 ws.cells_dict[deleted_ws] = False
-                ws.cells_dict[deleted_ry] = False
-                return (ws, ry)
-        return ()
+                ry.cells_dict[deleted_ry] = False
+                return (ws, ry, deleted_ws, deleted_ry)
+        return None
 
     def generate_neighbour_shift_oligo(
         self, ws: WSRY, ry: WSRY, r: ReconstructionData
-    ) -> tuple[WSRY, WSRY] | tuple[()]:
+    ) -> Optional[tuple[WSRY, WSRY]]:
         """Generate neighbours for current solution by shifting oligo."""
         ### INDEX OUTSIDE CLUSTER - BEGIN - choose random oligo to shift
         possible_idxs: list[int] = []
@@ -199,15 +194,15 @@ class Tabu:
                     and ws.depth == ry.depth
                     and len(Tabu.reconstruct_dna(ws, ry)) <= r.length
                 ):
-                    print(f"shifted: {random_oligo_idx} to {i}")
+                    # print(f"shifted: {random_oligo_idx} to {i}")
                     return (ws, ry)
                 ws.path.pop(i)
                 ry.path.pop(i)
-        return ()
+        return None
 
     def generate_neigbour_delete_cluster(
         self, ws: WSRY, ry: WSRY, r: ReconstructionData
-    ) -> tuple[WSRY, WSRY] | tuple[()]:
+    ) -> Optional[tuple[WSRY, WSRY]]:
         """Generate neighbours for current solution by deleting cluster."""
         # find indexes of first elements of clusters
         ws = copy.deepcopy(ws)
@@ -243,11 +238,11 @@ class Tabu:
             if ws.depth == ry.depth and len(Tabu.reconstruct_dna(ws, ry)) <= r.length:
                 return (ws, ry)
 
-        return ()
+        return None
 
     def generate_neighbour_shift_cluster(
         self, ws: WSRY, ry: WSRY, r: ReconstructionData
-    ) -> tuple[WSRY, WSRY] | tuple[()]:
+    ) -> Optional[tuple[WSRY, WSRY]]:
         """Generate neighbours for current solution by shifting cluster."""
         ws = copy.deepcopy(ws)
         ry = copy.deepcopy(ry)
@@ -310,13 +305,13 @@ class Tabu:
                     and len(Tabu.reconstruct_dna(ws, ry)) <= r.length
                 ):
                     return (ws, ry)
-        return ()
+        return None
 
     def generate_neighbours(
         self, ws: WSRY, ry: WSRY, r: ReconstructionData
-    ) -> tuple[tuple[WSRY, WSRY], ...]:
+    ) -> tuple[tuple[WSRY, WSRY] | tuple[WSRY, WSRY, str, str], ...]:
         """Generate neighbours for current solution."""
-        neighbours: list[tuple[WSRY, WSRY]] = []
+        neighbours: list[tuple[WSRY, WSRY] | tuple[WSRY, WSRY, str, str]] = []
         ws_paths_set = {str(ws.path)}  # terrible solution, but it works
         not_used_not_tabu_oligos_ws = [
             oligo for oligo in ws.not_used_oligos() if not self.is_tabu(oligo)
@@ -326,15 +321,16 @@ class Tabu:
         ]
 
         for _ in range(self.number_of_neighbours):
-            # chosen_move = random.choice(list(Moves))
+            chosen_move = random.choice(list(Moves))
             # chosen_move = Moves.INSERT_OLIGO
             # chosen_move = Moves.DELETE_OLIGO
             # chosen_move = Moves.SHIFT_OLIGO
             # chosen_move = Moves.DELETE_CLUSTER
-            chosen_move = Moves.SHIFT_CLUSTER
+            # chosen_move = Moves.SHIFT_CLUSTER
+            neighbour: Optional[tuple[WSRY, WSRY] | tuple[WSRY, WSRY, str, str]] = None
             match chosen_move:
                 case Moves.INSERT_OLIGO:
-                    print("INSERT_OLIGO")
+                    # print("INSERT_OLIGO")
                     neighbour = self.generate_neighbour_insert_oligo(
                         ws,
                         ry,
@@ -342,21 +338,22 @@ class Tabu:
                         not_used_not_tabu_oligos_ws,
                         not_used_not_tabu_oligos_ry,
                     )  # seems ok
+                    # neighbour = None
                 case Moves.DELETE_OLIGO:
-                    print("DELETE_OLIGO")
+                    # print("DELETE_OLIGO")
                     neighbour = self.generate_neighbour_delete_oligo(
                         ws, ry, r
                     )  # seems ok
                 case Moves.DELETE_CLUSTER:
-                    print("DELETE_CLUSTER")
+                    # print("DELETE_CLUSTER")
                     neighbour = self.generate_neigbour_delete_cluster(ws, ry, r)
                 case Moves.SHIFT_OLIGO:
-                    print("SHIFT_OLIGO")
+                    # print("SHIFT_OLIGO")
                     neighbour = self.generate_neighbour_shift_oligo(
                         ws, ry, r
                     )  # seems ok
                 case Moves.SHIFT_CLUSTER:
-                    print("SHIFT_CLUSTER")
+                    # print("SHIFT_CLUSTER")
                     neighbour = self.generate_neighbour_shift_cluster(
                         ws, ry, r
                     )  # can't get neigbour - is the possibility of it really low or is there a bug?
@@ -366,6 +363,14 @@ class Tabu:
                 neighbours.append(neighbour)
 
         return tuple(neighbours)
+
+    def global_grade(self, ws: WSRY, ry: WSRY):
+        """Calculate global grade of the solution - number of oligos in the path."""
+        return len(ws.path)
+
+    def condensation_grade(self, ws: WSRY, ry: WSRY):
+        """Calculate condensation grade of the solution - number of clusters in the path."""
+        return len(ws.path) / len(Tabu.reconstruct_dna(ws, ry))
 
     def find_solution(
         self,
@@ -378,25 +383,41 @@ class Tabu:
         Find solution using tabu search.
         ws, ry - WSRY objects with initial paths
         """
-        best_solution = copy.deepcopy(greedy_solution)
-        # best_solution[0].path = best_solution[0].path[:-1]
-        # best_solution[1].path = best_solution[1].path[:-1]
-        # best_solution[0].cells_dict[greedy_solution[0].path[-1]] = False
-        # best_solution[1].cells_dict[greedy_solution[1].path[-1]] = False
-        # best_solution[0].update_depth()
-        # best_solution[1].update_depth()
-        # best_solution = (ws, ry)
+        best_solution: tuple[WSRY, WSRY] | tuple[WSRY, WSRY, str] = copy.deepcopy(
+            greedy_solution
+        )
+
         print(best_solution)
         reconstructed_dna = Tabu.reconstruct_dna(best_solution[0], best_solution[1])
         print(reconstructed_dna, len(reconstructed_dna), f"max: {r.length}")
-        neighbours = self.generate_neighbours(best_solution[0], best_solution[1], r)
-        for neighbour in neighbours:
-            print(neighbour[0], neighbour[1])
-            if neighbour[0].depth != neighbour[1].depth:
-                print("ERROR - skipped neighbour with different depth")
-                continue
-            reconstructed_dna = Tabu.reconstruct_dna(neighbour[0], neighbour[1])
-            print(reconstructed_dna, len(reconstructed_dna), f"max: {r.length}")
-            if len(reconstructed_dna) > r.length:
-                print("ERROR - skipped neighbour with too long dna")
-                continue
+        for i in range(self.number_of_iterations):
+            max_grade_neighbour: Optional[
+                tuple[int, tuple[WSRY, WSRY] | tuple[WSRY, WSRY, str, str]]
+            ] = None
+
+            neighbours = self.generate_neighbours(best_solution[0], best_solution[1], r)
+            for neighbour in neighbours:
+                reconstructed_dna = Tabu.reconstruct_dna(neighbour[0], neighbour[1])
+                if len(reconstructed_dna) > r.length:
+                    print("ERROR - skipped neighbour with too long dna")
+                    continue
+
+                if i % 2:
+                    grade = self.global_grade(neighbour[0], neighbour[1])
+                else:
+                    grade = self.condensation_grade(neighbour[0], neighbour[1])
+
+                if max_grade_neighbour is None or grade > max_grade_neighbour[0]:
+                    max_grade_neighbour = (grade, neighbour)
+
+            if max_grade_neighbour:
+                print(neighbour[0], neighbour[1])
+                print(reconstructed_dna, len(reconstructed_dna), f"max: {r.length}")
+
+                best_solution = max_grade_neighbour[1]
+                if len(best_solution) == 4:
+                    self.add(best_solution[2], best_solution[3])
+            if len(self.tabu_list_ws) > self.tabu_size:
+                self.tabu_list_ws.pop(0)
+                self.tabu_list_ry.pop(0)
+                # add move to tabu list
