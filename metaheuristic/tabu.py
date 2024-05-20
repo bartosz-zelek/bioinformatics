@@ -341,32 +341,15 @@ class Tabu:
             neighbour: Optional[tuple[WSRY, WSRY] | tuple[WSRY, WSRY, str, str]] = None
             match chosen_move:
                 case Moves.INSERT_OLIGO:
-                    # print("INSERT_OLIGO")
-                    neighbour = self.generate_neighbour_insert_oligo(
-                        ws,
-                        ry,
-                        r,
-                        not_used_not_tabu_oligos_ws,
-                        not_used_not_tabu_oligos_ry,
-                    )  # seems ok
+                    neighbour = self.generate_neighbour_insert_oligo(ws, ry, r, not_used_not_tabu_oligos_ws, not_used_not_tabu_oligos_ry)
                 case Moves.DELETE_OLIGO:
-                    # print("DELETE_OLIGO")
-                    neighbour = self.generate_neighbour_delete_oligo(
-                        ws, ry, r
-                    )  # seems ok
+                    neighbour = self.generate_neighbour_delete_oligo(ws, ry, r)
                 case Moves.DELETE_CLUSTER:
-                    # print("DELETE_CLUSTER")
                     neighbour = self.generate_neigbour_delete_cluster(ws, ry, r)
                 case Moves.SHIFT_OLIGO:
-                    # print("SHIFT_OLIGO")
-                    neighbour = self.generate_neighbour_shift_oligo(
-                        ws, ry, r
-                    )  # seems ok
+                    neighbour = self.generate_neighbour_shift_oligo(ws, ry, r)
                 case Moves.SHIFT_CLUSTER:
-                    # print("SHIFT_CLUSTER")
-                    neighbour = self.generate_neighbour_shift_cluster(
-                        ws, ry, r
-                    )  # can't get neigbour - is the possibility of it really low or is there a bug?
+                    neighbour = self.generate_neighbour_shift_cluster(ws, ry, r)
 
             if neighbour and str(neighbour[0].path) not in ws_paths_set:
                 ws_paths_set.add(str(neighbour[0].path))
