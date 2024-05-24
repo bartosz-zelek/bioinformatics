@@ -95,8 +95,14 @@ def fetch_test_data(
         f"https://www.cs.put.poznan.pl/pwawrzyniak/bio/bio.php?n={n}&k={k}&mode={mode}&intensity={intensity}&position={position}&sqpe={sqpe}&sqne={sqne}&pose={pose}",
         timeout=10,
     ).content
+    # try:
+    #     file = open("exact algorithm/sefault.xml", "r")
+    # except FileNotFoundError:
+    #     file = open("sefault.xml", "r")
+    # content = file.read().encode("utf-8")
     if not content:
         raise requests.exceptions.RequestException("Failed to fetch test data")
+    print(content.decode("utf-8"))
     data = xmltodict.parse(content)
     return ReconstructionData(data)
 
@@ -115,7 +121,7 @@ def check_overlap(oligo1: str, oligo2: str, probe: int) -> int:
 
 
 def add_ongoing_vertices_to_list(
-    ws: WSRY, ry: WSRY
+    ws: WSRY, ry: WSRY, used_pairs: list[tuple[str, str]]
 ) -> tuple[tuple[str, str, int], ...]:
     """Add not used vertices to the list of candidates(ws,ry,overlap). Return sorted by overlap tuple of candidates."""
     ws = copy.deepcopy(ws)  # deepcopy probably not needed
@@ -146,7 +152,11 @@ def add_ongoing_vertices_to_list(
                         overlap_ws, overlap_ry = check_overlap(
                             tmp_last_ws, vertex_ws, len(vertex_ws)
                         ), check_overlap(tmp_last_ry, vertex_ry, len(vertex_ry))
-                        if overlap_ws == overlap_ry and overlap_ws > 0:
+                        if (
+                            overlap_ws == overlap_ry
+                            and overlap_ws > 0
+                            and (last_added_path_ws, vertex_ws) not in used_pairs
+                        ):
                             candidates.append(
                                 (vertex_ws, vertex_ry, overlap_ws)
                             )  # Candidates ← addPair(VertexWS, VertexRY);
@@ -159,7 +169,8 @@ def add_new_vertex_to_solution(
     ws: WSRY,
     ry: WSRY,
     r: ReconstructionData,
-) -> tuple[tuple[tuple[str, str, int], ...], WSRY, WSRY]:
+    used_pairs: list[tuple[str, str]],
+) -> tuple[WSRY, WSRY]:
     """return copies of ws and ry with added candidate to the solution. Remove candidate from the list of candidates. raise ValueError if no candidates to add."""
     ws = copy.deepcopy(ws)
     ry = copy.deepcopy(ry)
@@ -180,13 +191,19 @@ def add_new_vertex_to_solution(
             ry.depth.pop()
             continue
 
+        used_pairs.append((ws.path[-2], candidate[0]))
         ws.cells_dict[candidate[0]] = True
         ry.cells_dict[candidate[1]] = True
-        ret_candidates = list(candidates)
-        ret_candidates.remove(candidate)
-        return tuple(ret_candidates), ws, ry
+        return ws, ry
 
     raise ValueError("No candidates to add to the solution.")
+
+
+used_pairs: list[tuple[str, str]] = []
+
+# narrowed_candidates tego chyba nie chcemy
+# used_pairs - zaimplementowac
+# X = uniwersalny nukleotyd
 
 
 def reconstruct(
@@ -194,18 +211,14 @@ def reconstruct(
     ry: WSRY,
     r: ReconstructionData,
     solutions: list[tuple[WSRY, WSRY, int]],
-    narrowed_candidates: Optional[tuple[tuple[str, str, int], ...]] = None,
 ):
-    if narrowed_candidates is not None and len(narrowed_candidates) == 0:
+    candidates = add_ongoing_vertices_to_list(ws, ry, used_pairs)
+    if len(candidates) == 0:
+        solutions.append((ws, ry, ws.get_tmp_length_solution()))
         return
 
-    if narrowed_candidates is None:
-        candidates = add_ongoing_vertices_to_list(ws, ry)
-    else:
-        candidates = narrowed_candidates
-
     try:
-        _, ws, ry = add_new_vertex_to_solution(candidates, ws, ry, r)
+        ws, ry = add_new_vertex_to_solution(candidates, ws, ry, r, used_pairs)
         reconstruct(ws, ry, r, solutions)
         return
     except ValueError:
@@ -224,26 +237,18 @@ def reconstruct(
     # reverse steps
     ws = copy.deepcopy(ws)
     ry = copy.deepcopy(ry)
-    narr_candidates: list[tuple[str, str, int]] = list(candidates)
-    try:
-        # sometimes it throws a ValueError exception, because the candidate is not in the list
-        # then solution got only start oligo
-        # what to do in this case?
-        narr_candidates.remove((ws.path[-1], ry.path[-1], ws.depth[-1]))
-    except ValueError:
-        pass
     ws.cells_dict[ws.path[-1]] = False
     ry.cells_dict[ry.path[-1]] = False
     ws.path.pop()
     ws.depth.pop()
     ry.path.pop()
     ry.depth.pop()
-    reconstruct(ws, ry, r, solutions, tuple(narr_candidates))
+    reconstruct(ws, ry, r, solutions)
 
 
 def main() -> None:
     """Main function of the program."""
-    r: ReconstructionData = fetch_test_data(n=1000, k=10, sqne=250)
+    r: ReconstructionData = fetch_test_data(sqne=4)
     ws: WSRY = WSRY(nucleotide_to_weak_strong, r.start, r.ws_probe.cells)
     ry: WSRY = WSRY(nucleotide_to_purine_pyrimidine, r.start, r.ry_probe.cells)
     solutions: list[tuple[WSRY, WSRY, int]] = list()
