@@ -223,8 +223,8 @@ def reconstruct(
     if len(candidates) == 0:
         tmp_solution_length = ws.get_tmp_length_solution()
         solutions.append((ws, ry, tmp_solution_length))
-        # if tmp_solution_length == r.length:
-        #     return
+        if tmp_solution_length == r.length and count_negative_errors(ws) == r.sqne:
+            return
 
     try:
         ws, ry = add_new_vertex_to_solution(candidates, ws, ry, r, used_pairs)
@@ -232,9 +232,9 @@ def reconstruct(
         return
     except ValueError:
         tmp_solution_length = ws.get_tmp_length_solution()
-        if tmp_solution_length == r.length:
+        if tmp_solution_length == r.length and count_negative_errors(ws) == r.sqne:
             solutions.append((ws, ry, tmp_solution_length))
-            # return
+            return
         else:
             if len(solutions) == 0:
                 solutions.append((ws, ry, tmp_solution_length))
@@ -259,7 +259,7 @@ def reconstruct(
 
 def main() -> None:
     """Main function of the program."""
-    r: ReconstructionData = fetch_test_data(n=20, k=6, sqne=4)
+    r: ReconstructionData = fetch_test_data(sqne=4)
     ws: WSRY = WSRY(nucleotide_to_weak_strong, r.start, r.ws_probe.cells)
     ry: WSRY = WSRY(nucleotide_to_purine_pyrimidine, r.start, r.ry_probe.cells)
     solutions: list[tuple[WSRY, WSRY, int]] = list()
