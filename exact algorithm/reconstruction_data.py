@@ -15,12 +15,13 @@ class Probe:
 class ReconstructionData:
     """Reconstruction data class"""
 
-    def __init__(self, json: dict):
+    def __init__(self, json: dict, sqne: int):
         self.length = int(json["dna"]["@length"])
         self.start = json["dna"]["@start"]
 
         self.ws_probe = Probe(json["dna"]["probe"][0])
         self.ry_probe = Probe(json["dna"]["probe"][1])
+        self.sqne = sqne
 
     def __repr__(self):
         return f"Length: {self.length}, Start: {self.start}, Probes:[ {self.ws_probe},\n\t {self.ry_probe} ]"
