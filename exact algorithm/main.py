@@ -2,6 +2,7 @@
 
 import copy
 import sys
+import time
 from typing import Optional
 
 import requests
@@ -81,20 +82,22 @@ class WSRY:
 
 
 def fetch_test_data(
-    n: int = 16,
-    k: int = 4,
+    n: int = 150,
+    k: int = 10,
     mode: str = "binary",
     intensity: int = 0,
     position: int = 0,
     sqpe: int = 0,
-    sqne: int = 0,
+    sqne: int = 12,
     pose: int = 0,
 ) -> ReconstructionData:
     """Fetches test data from server"""
-    content = requests.get(
-        f"https://www.cs.put.poznan.pl/pwawrzyniak/bio/bio.php?n={n}&k={k}&mode={mode}&intensity={intensity}&position={position}&sqpe={sqpe}&sqne={sqne}&pose={pose}",
-        timeout=10,
-    ).content
+    # content = requests.get(
+    #     f"https://www.cs.put.poznan.pl/pwawrzyniak/bio/bio.php?n={n}&k={k}&mode={mode}&intensity={intensity}&position={position}&sqpe={sqpe}&sqne={sqne}&pose={pose}",
+    #     timeout=10,
+    # ).content
+    file = open(f"../test_data/n{n}k{k}sqne{sqne}.xml", "r", encoding="utf-8")
+    content = file.read().encode("utf-8")
     # try:
     #     file = open("exact algorithm/sefault.xml", "r")
     # except FileNotFoundError:
@@ -102,7 +105,6 @@ def fetch_test_data(
     # content = file.read().encode("utf-8")
     if not content:
         raise requests.exceptions.RequestException("Failed to fetch test data")
-    # print(content.decode("utf-8"))
     data = xmltodict.parse(content)
     return ReconstructionData(data, sqne)
 
@@ -139,9 +141,6 @@ def add_ongoing_vertices_to_list(
         + nucleotide_to_purine_pyrimidine[last_added_path_ws[-1]]
     )
 
-    # TODO: [1]    109574 segmentation fault (core dumped)  python3 main.py - sometimes segmentation fault
-    # probably because of too many recursive calls
-    # is there a problem when one oligo is added and removed over and over again?
     for vertex_ws in ws.cells_dict:  # for (VertexW S ← OverlapSet) do
         if not ws.cells_dict[vertex_ws]:
             for vertex_ry in ry.cells_dict:  # for (VertexRY ← OverlapSet) do
@@ -259,7 +258,9 @@ def reconstruct(
 
 def main() -> None:
     """Main function of the program."""
-    r: ReconstructionData = fetch_test_data(sqne=4)
+    r: ReconstructionData = fetch_test_data()
+    # start time
+    start = time.time()
     ws: WSRY = WSRY(nucleotide_to_weak_strong, r.start, r.ws_probe.cells)
     ry: WSRY = WSRY(nucleotide_to_purine_pyrimidine, r.start, r.ry_probe.cells)
     solutions: list[tuple[WSRY, WSRY, int]] = list()
@@ -269,7 +270,7 @@ def main() -> None:
     for solution in solutions:
         errors = count_negative_errors(solution[0])
         if errors == r.sqne and solution[2] == r.length:
-            print("Found perfect solution!")
+            # print("Found perfect solution!")
             best_solution = solution
             break
     if best_solution is None:
@@ -283,10 +284,12 @@ def main() -> None:
     ):
         connected = WSRY.connect_ws_ry(ws_oligo, ry_oligo)
         reconstructed_dna += connected[depth - len(ws_oligo) :]
+    end = time.time()
     print(f"Dane wejściowe: {r}")
     print(f"Rozwiązanie: {best_solution}")
     print(f"Rekonstrukcja: {reconstructed_dna}", end=" ")
     print(len(reconstructed_dna))
+    print(f"Czas wykonania: {end - start}")
 
 
 main()

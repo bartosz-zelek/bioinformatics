@@ -56,7 +56,9 @@ def greedy(ws: WSRY, ry: WSRY, r: ReconstructionData) -> tuple[WSRY, WSRY]:
     reconstructed_dna_length = len(ws.start_converted)
 
     while True:
-        pair = first_nonzero_overlap_pair(ws, ry)
+        pair = first_nonzero_overlap_pair(
+            ws, ry
+        )  # tuple[str, str, int] -> (VertexWS, VertexRY, overlap)
 
         if pair is None:
             break

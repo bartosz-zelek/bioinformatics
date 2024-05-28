@@ -3,6 +3,7 @@
 import copy
 import random
 from enum import Enum
+import time
 from typing import Optional
 from wsry import WSRY
 from reconstruction_data import ReconstructionData
@@ -323,7 +324,7 @@ class Tabu:
     ) -> tuple[tuple[WSRY, WSRY] | tuple[WSRY, WSRY, str, str], ...]:
         """Generate neighbours for current solution."""
         neighbours: list[tuple[WSRY, WSRY] | tuple[WSRY, WSRY, str, str]] = []
-        ws_paths_set = {str(ws.path)}  # terrible solution, but it works
+        ws_paths_set = {str(ws.path)}
         not_used_not_tabu_oligos_ws = [
             oligo for oligo in ws.not_used_oligos() if not self.is_tabu(oligo)
         ]
@@ -333,15 +334,16 @@ class Tabu:
 
         for _ in range(self.number_of_neighbours):
             chosen_move = random.choice(list(Moves))
-            # chosen_move = Moves.INSERT_OLIGO
-            # chosen_move = Moves.DELETE_OLIGO
-            # chosen_move = Moves.SHIFT_OLIGO
-            # chosen_move = Moves.DELETE_CLUSTER
-            # chosen_move = Moves.SHIFT_CLUSTER
             neighbour: Optional[tuple[WSRY, WSRY] | tuple[WSRY, WSRY, str, str]] = None
             match chosen_move:
                 case Moves.INSERT_OLIGO:
-                    neighbour = self.generate_neighbour_insert_oligo(ws, ry, r, not_used_not_tabu_oligos_ws, not_used_not_tabu_oligos_ry)
+                    neighbour = self.generate_neighbour_insert_oligo(
+                        ws,
+                        ry,
+                        r,
+                        not_used_not_tabu_oligos_ws,
+                        not_used_not_tabu_oligos_ry,
+                    )
                 case Moves.DELETE_OLIGO:
                     neighbour = self.generate_neighbour_delete_oligo(ws, ry, r)
                 case Moves.DELETE_CLUSTER:
@@ -376,6 +378,7 @@ class Tabu:
         Find solution using tabu search.
         ws, ry - WSRY objects with initial paths
         """
+        start = time.time()
         best_solution: tuple[WSRY, WSRY] | tuple[WSRY, WSRY, str] = copy.deepcopy(
             greedy_solution
         )
@@ -383,10 +386,14 @@ class Tabu:
             None  # ws ry abs(errors) solution_length
         )
 
-        print(best_solution)
-        reconstructed_dna = Tabu.reconstruct_dna(best_solution[0], best_solution[1])
-        print(reconstructed_dna, len(reconstructed_dna), f"max: {r.length}")
+        # print(best_solution)
+        # reconstructed_dna = Tabu.reconstruct_dna(best_solution[0], best_solution[1])
+        # print(reconstructed_dna, len(reconstructed_dna), f"max: {r.length}")
         for _ in range(self.number_of_iterations):
+            # if 1 minute passed return best solution
+            end = time.time()
+            if end - start > 60:
+                return (best_solution[0], best_solution[1])
             max_grade_neighbour: Optional[
                 tuple[int, tuple[WSRY, WSRY] | tuple[WSRY, WSRY, str, str]]
             ] = None
@@ -405,14 +412,14 @@ class Tabu:
                 reconstructed_dna = Tabu.reconstruct_dna(
                     max_grade_neighbour[1][0], max_grade_neighbour[1][1]
                 )
-                print(max_grade_neighbour[1][:2])
-                print(reconstructed_dna, len(reconstructed_dna), f"max: {r.length}")
-                print(self.count_negative_errors(max_grade_neighbour[1][0]))
+                # print(max_grade_neighbour[1][:2])
+                # print(reconstructed_dna, len(reconstructed_dna), f"max: {r.length}")
+                # print(self.count_negative_errors(max_grade_neighbour[1][0]))
                 if (
                     len(reconstructed_dna) == r.length
                     and self.count_negative_errors(max_grade_neighbour[1][0]) == r.sqne
                 ):
-                    print("Found perfect solution")
+                    # print("Found perfect solution")
                     return (max_grade_neighbour[1][0], max_grade_neighbour[1][1])
 
                 if solution_to_return is None or (
@@ -442,7 +449,7 @@ class Tabu:
                 if self.ommit_tabu:
                     self.ommit_tabu = False
             else:
-                print("No better solution found")
+                # print("No better solution found")
                 self.ommit_tabu = True
             if len(self.tabu_list_ws) > self.tabu_size:
                 self.tabu_list_ws.pop(0)
