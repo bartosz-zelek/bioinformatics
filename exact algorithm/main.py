@@ -82,21 +82,23 @@ class WSRY:
 
 
 def fetch_test_data(
-    n: int = 150,
-    k: int = 10,
-    mode: str = "binary",
-    intensity: int = 0,
-    position: int = 0,
-    sqpe: int = 0,
-    sqne: int = 12,
-    pose: int = 0,
+    filename: str,
+    # n: int = 150,
+    # k: int = 10,
+    # mode: str = "binary",
+    # intensity: int = 0,
+    # position: int = 0,
+    # sqpe: int = 0,
+    # sqne: int = 12,
+    # pose: int = 0,
 ) -> ReconstructionData:
     """Fetches test data from server"""
     # content = requests.get(
     #     f"https://www.cs.put.poznan.pl/pwawrzyniak/bio/bio.php?n={n}&k={k}&mode={mode}&intensity={intensity}&position={position}&sqpe={sqpe}&sqne={sqne}&pose={pose}",
     #     timeout=10,
     # ).content
-    file = open(f"../test_data/n{n}k{k}sqne{sqne}.xml", "r", encoding="utf-8")
+    # file = open(f"../test_data/n{n}k{k}sqne{sqne}.xml", "r", encoding="utf-8")
+    file = open(filename, "r", encoding="utf-8")
     content = file.read().encode("utf-8")
     # try:
     #     file = open("exact algorithm/sefault.xml", "r")
@@ -106,7 +108,7 @@ def fetch_test_data(
     if not content:
         raise requests.exceptions.RequestException("Failed to fetch test data")
     data = xmltodict.parse(content)
-    return ReconstructionData(data, sqne)
+    return ReconstructionData(data)
 
 
 def check_overlap(oligo1: str, oligo2: str, probe: int) -> int:
@@ -173,9 +175,6 @@ def add_new_vertex_to_solution(
     ws = copy.deepcopy(ws)
     ry = copy.deepcopy(ry)
 
-    # TODO: sprawdź czy rozszerzone ścieżki nie przekroczą maksymalnej dopuszczalnej długości oraz
-    # czy w przypadku nałożenia mniejszego niż maksymalne, powiększony o odpowiednią
-    # wartość licznik takich nałożeń wciąż znajduje się poniżej limitu ustalonego dla poszukiwanego rozwiązania
     for candidate in candidates:
         ws.path.append(candidate[0])
         ws.depth.append(candidate[2])
@@ -198,10 +197,6 @@ def add_new_vertex_to_solution(
 
 
 used_pairs: list[tuple[str, str]] = []
-
-# narrowed_candidates tego chyba nie chcemy
-# used_pairs - zaimplementowac
-# X = uniwersalny nukleotyd
 
 
 def count_negative_errors(ws: WSRY) -> int:
@@ -258,9 +253,14 @@ def reconstruct(
 
 def main() -> None:
     """Main function of the program."""
-    r: ReconstructionData = fetch_test_data()
+    # take arguments from command line
+    if len(sys.argv) != 2:
+        print("Usage: python main.py <xml_file>")
+        return
+    filename = sys.argv[1]
+    r: ReconstructionData = fetch_test_data(filename)
     # start time
-    start = time.time()
+    # start = time.time()
     ws: WSRY = WSRY(nucleotide_to_weak_strong, r.start, r.ws_probe.cells)
     ry: WSRY = WSRY(nucleotide_to_purine_pyrimidine, r.start, r.ry_probe.cells)
     solutions: list[tuple[WSRY, WSRY, int]] = list()
@@ -284,12 +284,12 @@ def main() -> None:
     ):
         connected = WSRY.connect_ws_ry(ws_oligo, ry_oligo)
         reconstructed_dna += connected[depth - len(ws_oligo) :]
-    end = time.time()
-    print(f"Dane wejściowe: {r}")
-    print(f"Rozwiązanie: {best_solution}")
-    print(f"Rekonstrukcja: {reconstructed_dna}", end=" ")
-    print(len(reconstructed_dna))
-    print(f"Czas wykonania: {end - start}")
+    # end = time.time()
+    # print(f"Dane wejściowe: {r}")
+    # print(f"Rozwiązanie: {best_solution}")
+    print(reconstructed_dna)
+    # print(len(reconstructed_dna))
+    # print(f"Czas wykonania: {end - start}")
 
 
 main()
