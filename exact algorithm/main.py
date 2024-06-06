@@ -9,7 +9,7 @@ import requests
 import xmltodict
 from reconstruction_data import ReconstructionData
 
-sys.setrecursionlimit(10**6)
+sys.setrecursionlimit(10**9)
 
 nucleotide_to_weak_strong = {
     "A": "W",
