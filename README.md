@@ -1,11 +1,22 @@
-Bioinformatyka
+## Bioinformatics
 
-Sekwencjonowanie DNA w oparciu o chipy binarne z błędami negatywnymi
+### DNA Sequencing Based on Binary Chips with Negative Errors
 
-Algorytm dokładny i metaheurystyka (tabu search)
+**Methods:**
 
-Sprawozdanie: https://www.overleaf.com/read/zjxfdbrsprmn#f9d84d
+- Exact Algorithm
+- Metaheuristic (Tabu Search)
 
-_Usage_:
 
+### Report
+
+The detailed report is available at:
+[Overleaf Report](https://www.overleaf.com/read/zjxfdbrsprmn#f9d84d)
+
+### Usage
+
+To run the program, use the following command:
+
+```bash
 python3 main.py path_to_xml_file
+```
